@@ -1,288 +1,227 @@
-#!/usr/bin/env python3
-"""
-Script to create a FAISS vector database from processed job data.
-This allows semantic search of job information.
-"""
-
-import os
-import sys
 import json
-import logging
-import argparse
+import re
+import unicodedata
 import numpy as np
-from typing import Dict, List, Any, Optional
-from pathlib import Path
+import torch
+from transformers import AutoTokenizer, AutoModel
+import psycopg2
+from pgvector.psycopg2 import register_vector
 
-# Set up logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("src/logs/vector_db.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger("vector_db_creator")
-
-# Check for required packages
-try:
-    import faiss
-    from sentence_transformers import SentenceTransformer
-except ImportError:
-    logger.error("Required packages not found. Please install with:")
-    logger.error("pip install faiss-cpu sentence-transformers")
-    sys.exit(1)
-
-class VectorDBCreator:
-    """
-    Class to create a FAISS vector database from text data
-    """
-    def __init__(
-        self,
-        input_file: str,
-        output_dir: str,
-        model_name: str = "paraphrase-multilingual-MiniLM-L12-v2"
-    ):
+class JobDataPreprocessor:
+    def __init__(self, model_name="airesearch/wangchanberta-base-wiki-punctuation"):
         """
-        Initialize the vector database creator
+        Initialize preprocessor with text cleaning and embedding model
         
         Args:
-            input_file: Path to input JSON file with text chunks
-            output_dir: Directory to save the vector database
-            model_name: Name of the sentence transformer model to use
+            model_name: Hugging Face model for embeddings
         """
-        self.input_file = input_file
-        self.output_dir = output_dir
-        self.model_name = model_name
-        self.model = None
-        self.chunks = []
-        self.metadata = []
+        # Initialize tokenizer and model
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModel.from_pretrained(model_name)
         
-        # Create output directory if it doesn't exist
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-            logger.info(f"Created output directory: {output_dir}")
+        # Database connection parameters (modify as needed)
+        self.db_params = {
+            'dbname': 'career_ai_db',
+            'user': 'your_username',
+            'password': 'your_password',
+            'host': 'localhost',
+            'port': '5432'
+        }
     
-    def load_data(self) -> int:
+    def clean_text(self, text):
         """
-        Load text chunks from the input file
-        
-        Returns:
-            Number of chunks loaded
-        """
-        try:
-            with open(self.input_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            
-            # Handle different possible structures
-            if isinstance(data, list):
-                chunks = data
-            elif isinstance(data, dict) and 'chunks' in data:
-                chunks = data['chunks']
-            else:
-                logger.error(f"Unexpected data structure in {self.input_file}")
-                return 0
-            
-            # Extract text and metadata
-            for chunk in chunks:
-                if 'text' in chunk and chunk['text'].strip():
-                    self.chunks.append(chunk['text'])
-                    self.metadata.append(chunk.get('metadata', {}))
-            
-            logger.info(f"Loaded {len(self.chunks)} chunks from {self.input_file}")
-            return len(self.chunks)
-        
-        except Exception as e:
-            logger.error(f"Error loading data from {self.input_file}: {str(e)}")
-            return 0
-    
-    def load_model(self) -> bool:
-        """
-        Load the sentence transformer model
-        
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            logger.info(f"Loading sentence transformer model: {self.model_name}")
-            self.model = SentenceTransformer(self.model_name)
-            logger.info("Model loaded successfully")
-            return True
-        
-        except Exception as e:
-            logger.error(f"Error loading model: {str(e)}")
-            return False
-    
-    def create_index(self) -> Optional[faiss.Index]:
-        """
-        Create a FAISS index from the text chunks
-        
-        Returns:
-            FAISS index or None if failed
-        """
-        if not self.chunks:
-            logger.error("No chunks to index")
-            return None
-        
-        if not self.model:
-            if not self.load_model():
-                return None
-        
-        try:
-            # Encode text chunks to embeddings
-            logger.info(f"Encoding {len(self.chunks)} chunks to embeddings")
-            embeddings = self.model.encode(self.chunks, show_progress_bar=True)
-            
-            # Get dimension of embeddings
-            dimension = embeddings.shape[1]
-            logger.info(f"Embedding dimension: {dimension}")
-            
-            # Create FAISS index
-            logger.info("Creating FAISS index")
-            index = faiss.IndexFlatL2(dimension)
-            
-            # Add embeddings to index
-            faiss.normalize_L2(embeddings)
-            index = faiss.IndexIDMap(index)
-            index.add_with_ids(embeddings, np.array(range(len(embeddings))))
-            
-            logger.info(f"Created FAISS index with {index.ntotal} vectors")
-            return index
-        
-        except Exception as e:
-            logger.error(f"Error creating index: {str(e)}")
-            return None
-    
-    def save_index(self, index: faiss.Index) -> bool:
-        """
-        Save the FAISS index and metadata
+        Clean and normalize text
         
         Args:
-            index: FAISS index to save
-            
+            text: Input text to clean
+        
         Returns:
-            True if successful, False otherwise
+            Cleaned text
+        """
+        if not isinstance(text, str):
+            return ""
+        
+        # Normalize unicode characters
+        text = unicodedata.normalize('NFKD', text)
+        
+        # Remove special characters and extra whitespaces
+        text = re.sub(r'[^\w\s]', '', text)
+        
+        # Convert to lowercase
+        text = text.lower()
+        
+        # Remove extra whitespaces
+        text = re.sub(r'\s+', ' ', text).strip()
+        
+        return text
+    
+    def prepare_job_data(self, jobs_data):
+        """
+        Prepare job data by combining and cleaning relevant fields
+        
+        Args:
+            jobs_data: Dictionary of job data
+        
+        Returns:
+            Processed job data with cleaned text
+        """
+        processed_jobs = {}
+        
+        for job_id, job_info in jobs_data.items():
+            # Combine relevant fields
+            combined_text = " ".join([
+                self.clean_text(job_info.get('description', '')),
+                " ".join(self.clean_text(resp) for resp in job_info.get('responsibilities', [])),
+                " ".join(self.clean_text(skill) for skill in job_info.get('skills', []))
+            ])
+            
+            processed_jobs[job_id] = {
+                'id': job_id,
+                'title': self.clean_text(job_info.get('title', '')),
+                'text': combined_text
+            }
+        
+        return processed_jobs
+    
+    def create_embeddings(self, processed_jobs):
+        """
+        Create embeddings for processed job data
+        
+        Args:
+            processed_jobs: Dictionary of processed job data
+        
+        Returns:
+            Dictionary of job embeddings
+        """
+        embeddings = {}
+        
+        for job_id, job_data in processed_jobs.items():
+            # Tokenize and create embedding
+            inputs = self.tokenizer(
+                job_data['text'], 
+                return_tensors="pt", 
+                truncation=True, 
+                max_length=512
+            )
+            
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+            
+            # Mean pooling to get sentence embedding
+            embedding = outputs.last_hidden_state.mean(dim=1).numpy().flatten()
+            
+            embeddings[job_id] = embedding
+        
+        return embeddings
+    
+    def chunk_embeddings(self, embeddings, chunk_size=100):
+        """
+        Chunk large embeddings for storage and processing
+        
+        Args:
+            embeddings: Dictionary of embeddings
+            chunk_size: Size of each chunk
+        
+        Returns:
+            List of chunked embeddings
+        """
+        chunked_embeddings = []
+        
+        for job_id, embedding in embeddings.items():
+            # Split large embedding into chunks
+            chunks = [
+                embedding[i:i+chunk_size] 
+                for i in range(0, len(embedding), chunk_size)
+            ]
+            
+            for i, chunk in enumerate(chunks):
+                chunked_embeddings.append({
+                    'job_id': job_id,
+                    'chunk_index': i,
+                    'embedding': chunk
+                })
+        
+        return chunked_embeddings
+    
+    def store_embeddings_in_postgres(self, chunked_embeddings):
+        """
+        Store embeddings in PostgreSQL with pgvector
+        
+        Args:
+            chunked_embeddings: List of chunked embeddings
         """
         try:
-            # Save FAISS index
-            index_path = os.path.join(self.output_dir, "faiss_index")
-            logger.info(f"Saving FAISS index to {index_path}")
-            faiss.write_index(index, index_path)
+            # Establish connection
+            conn = psycopg2.connect(**self.db_params)
             
-            # Save metadata
-            metadata_path = os.path.join(self.output_dir, "metadata.json")
-            logger.info(f"Saving metadata to {metadata_path}")
+            # Register vector extension
+            register_vector(conn)
             
-            # Create metadata file with mapping from index to chunk metadata
-            metadata_dict = {
-                "count": len(self.metadata),
-                "items": self.metadata,
-                "model": self.model_name
-            }
+            # Create cursor
+            cur = conn.cursor()
             
-            with open(metadata_path, 'w', encoding='utf-8') as f:
-                json.dump(metadata_dict, f, ensure_ascii=False, indent=2)
+            # Create table if not exists
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS job_embeddings (
+                    id SERIAL PRIMARY KEY,
+                    job_id TEXT,
+                    chunk_index INTEGER,
+                    embedding vector(768)
+                )
+            """)
             
-            # Save chunks for reference
-            chunks_path = os.path.join(self.output_dir, "chunks.json")
-            logger.info(f"Saving chunks to {chunks_path}")
+            # Insert embeddings
+            for embed_data in chunked_embeddings:
+                cur.execute(
+                    "INSERT INTO job_embeddings (job_id, chunk_index, embedding) VALUES (%s, %s, %s)",
+                    (
+                        embed_data['job_id'], 
+                        embed_data['chunk_index'], 
+                        embed_data['embedding']
+                    )
+                )
             
-            chunks_dict = {
-                "count": len(self.chunks),
-                "items": self.chunks
-            }
+            # Commit and close
+            conn.commit()
+            cur.close()
+            conn.close()
             
-            with open(chunks_path, 'w', encoding='utf-8') as f:
-                json.dump(chunks_dict, f, ensure_ascii=False, indent=2)
-            
-            logger.info("Vector database created successfully")
-            return True
+            print(f"Stored {len(chunked_embeddings)} embedding chunks")
         
         except Exception as e:
-            logger.error(f"Error saving index: {str(e)}")
-            return False
+            print(f"Error storing embeddings: {e}")
     
-    def create_database(self) -> bool:
+    def process_and_store_job_embeddings(self, jobs_data_path):
         """
-        Create the vector database
+        Full pipeline: load, preprocess, embed, and store job data
         
-        Returns:
-            True if successful, False otherwise
+        Args:
+            jobs_data_path: Path to jobs JSON file
         """
-        # Load data
-        if not self.load_data():
-            return False
+        # Load job data
+        with open(jobs_data_path, 'r', encoding='utf-8') as f:
+            jobs_data = json.load(f)
         
-        # Create index
-        index = self.create_index()
-        if index is None:
-            return False
+        # Prepare job data
+        processed_jobs = self.prepare_job_data(jobs_data)
         
-        # Save index and metadata
-        return self.save_index(index)
+        # Create embeddings
+        embeddings = self.create_embeddings(processed_jobs)
+        
+        # Chunk embeddings
+        chunked_embeddings = self.chunk_embeddings(embeddings)
+        
+        # Store in PostgreSQL
+        self.store_embeddings_in_postgres(chunked_embeddings)
 
-
-def parse_arguments() -> argparse.Namespace:
-    """
-    Parse command-line arguments
+def main():
+    # Create preprocessor instance
+    preprocessor = JobDataPreprocessor()
     
-    Returns:
-        Parsed arguments
-    """
-    parser = argparse.ArgumentParser(
-        description="Create a FAISS vector database from processed job data",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    # Process and store job embeddings
+    preprocessor.process_and_store_job_embeddings(
+        'backend/data/processed/merged_jobs.json'
     )
-    
-    # Required arguments
-    parser.add_argument(
-        "--input", 
-        required=True,
-        help="Path to input JSON file with text chunks"
-    )
-    
-    parser.add_argument(
-        "--output", 
-        required=True,
-        help="Directory to save the vector database"
-    )
-    
-    # Optional arguments
-    parser.add_argument(
-        "--model",
-        default="paraphrase-multilingual-MiniLM-L12-v2",
-        help="Name of the sentence transformer model to use"
-    )
-    
-    return parser.parse_args()
-
-
-def main() -> int:
-    """
-    Main function
-    
-    Returns:
-        Exit code (0 for success, non-zero for error)
-    """
-    # Parse arguments
-    args = parse_arguments()
-    
-    logger.info("Starting vector database creation")
-    
-    # Create vector database
-    creator = VectorDBCreator(
-        input_file=args.input,
-        output_dir=args.output,
-        model_name=args.model
-    )
-    
-    if creator.create_database():
-        logger.info("Vector database created successfully")
-        return 0
-    else:
-        logger.error("Failed to create vector database")
-        return 1
-
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
