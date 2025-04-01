@@ -1,0 +1,48 @@
+# สรุปข้อมูลตำแหน่งงาน IT จาก Talance Tech
+
+จำนวนตำแหน่งงานทั้งหมด: 37
+
+## รายการตำแหน่งงาน
+
+1. Android developer (6 ความรับผิดชอบ)
+2. Back-end Developer (3 ความรับผิดชอบ)
+3. Business Analyst (3 ความรับผิดชอบ)
+4. Business Intelligence Analyst (6 ความรับผิดชอบ)
+5. CIO (3 ความรับผิดชอบ)
+6. CTO (3 ความรับผิดชอบ)
+7. Data Architecture (8 ความรับผิดชอบ)
+8. Data Engineer (8 ความรับผิดชอบ)
+9. Data Scientist (8 ความรับผิดชอบ)
+10. Data analyst (6 ความรับผิดชอบ)
+11. DevOps (6 ความรับผิดชอบ)
+12. Front-end Developer (6 ความรับผิดชอบ)
+13. Full-stack Developer (3 ความรับผิดชอบ)
+14. Game Developer (7 ความรับผิดชอบ)
+15. IOS Developer (5 ความรับผิดชอบ)
+16. IT Auditor (4 ความรับผิดชอบ)
+17. IT Director (3 ความรับผิดชอบ)
+18. IT Helpdesk (3 ความรับผิดชอบ)
+19. IT Project Manager (3 ความรับผิดชอบ)
+20. IT Security Manager (5 ความรับผิดชอบ)
+21. IT Support (4 ความรับผิดชอบ)
+22. Machine Learning Engineer (7 ความรับผิดชอบ)
+23. Mobile developer (6 ความรับผิดชอบ)
+24. Network Engineer (4 ความรับผิดชอบ)
+25. Product designer (5 ความรับผิดชอบ)
+26. Quality analyst (3 ความรับผิดชอบ)
+27. Security analyst (5 ความรับผิดชอบ)
+28. Software Developer (4 ความรับผิดชอบ)
+29. Software Engineer (8 ความรับผิดชอบ)
+30. Software analyst (3 ความรับผิดชอบ)
+31. System Engineer (6 ความรับผิดชอบ)
+32. System analyst (5 ความรับผิดชอบ)
+33. Test analyst (8 ความรับผิดชอบ)
+34. UI designer (5 ความรับผิดชอบ)
+35. UX Designer (6 ความรับผิดชอบ)
+36. บทความที่เกี่ยวข้อง (0 ความรับผิดชอบ)
+37. สายงาน QA/Tester (13 ความรับผิดชอบ)
+
+## ที่มาข้อมูล
+
+ข้อมูลดึงมาจาก: https://www.talance.tech/blog/it-job-responsibility/
+วันที่ดึงข้อมูล: time.struct_time(tm_year=2025, tm_mon=4, tm_mday=1, tm_hour=21, tm_min=29, tm_sec=23, tm_wday=1, tm_yday=91, tm_isdst=0)

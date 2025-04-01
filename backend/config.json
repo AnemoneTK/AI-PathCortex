@@ -1,0 +1,183 @@
+{
+  "data_collection": {
+    "jobsdb": {
+      "base_url": "https://th.jobsdb.com/th/career-advice/role/{}",
+      "job_titles": [
+        "programmer",
+        "software-developer",
+        "web-developer",
+        "software-engineer",
+        "systems-analyst",
+        "data-scientist",
+        "ux--ui-designer",
+        "full-stack-developer",
+        "frontend-developer",
+        "backend-developer",
+        "webdesigner",
+        "android-developer",
+        "ios-developer",
+        "devops-engineer",
+        "information-technology-project-manager",
+        "information-technology-engineer",
+        "testing-engineer",
+        "network-administrator"
+      ]
+    }
+  },
+  "data_processing": {
+    "job_normalizer": {
+      "similarity_threshold": 0.75,
+      "job_groups": {
+        "software-engineer": [
+          "software engineer",
+          "software-engineer",
+          "วิศวกรซอฟต์แวร์",
+          "software development engineer",
+          "engineer",
+          "software"
+        ],
+        "software-developer": [
+          "software developer",
+          "software-developer",
+          "programmer",
+          "coder",
+          "นักพัฒนาซอฟต์แวร์",
+          "software development",
+          "applications-developer",
+          "applications developer",
+          "programmer",
+          "software analyst"
+        ],
+        "web-developer": [
+          "web developer",
+          "web-developer",
+          "web development",
+          "นักพัฒนาเว็บ",
+          "website developer"
+        ],
+        "frontend-developer": [
+          "frontend",
+          "front end",
+          "front-end",
+          "frontend developer",
+          "frontend-developer",
+          "front-end developer",
+          "front end developer",
+          "ui developer"
+        ],
+        "backend-developer": [
+          "backend",
+          "back end",
+          "back-end",
+          "backend developer",
+          "backend-developer",
+          "back-end developer",
+          "back end developer",
+          "server side developer"
+        ],
+        "full-stack-developer": [
+          "full stack",
+          "fullstack",
+          "full-stack",
+          "full stack developer",
+          "fullstack developer",
+          "full-stack developer",
+          "full-stack-developer"
+        ],
+        "mobile-developer": [
+          "mobile developer",
+          "mobile-developer",
+          "mobile app developer",
+          "android developer",
+          "android-developer",
+          "ios developer",
+          "ios-developer",
+          "นักพัฒนาแอนดรอยด์",
+          "นักพัฒนาแอพ",
+          "mobile application developer"
+        ],
+        "ux-designer": [
+          "ux designer",
+          "ux-designer",
+          "ui designer",
+          "ui-designer",
+          "ux/ui designer",
+          "user experience",
+          "user interface",
+          "webdesigner",
+          "web designer"
+        ],
+        "data-scientist": [
+          "data scientist",
+          "data-scientist",
+          "นักวิทยาศาสตร์ข้อมูล",
+          "data analytics",
+          "data analyst",
+          "machine learning engineer",
+          "ml engineer",
+          "ai engineer"
+        ],
+        "devops-engineer": [
+          "devops engineer",
+          "devops-engineer",
+          "devops",
+          "dev ops",
+          "site reliability engineer",
+          "sre",
+          "deployment engineer",
+          "infrastructure engineer"
+        ],
+        "project-manager": [
+          "project manager",
+          "it project manager",
+          "information technology project manager",
+          "project management",
+          "it project lead",
+          "project lead",
+          "scrum master"
+        ],
+        "qa-engineer": [
+          "qa engineer",
+          "quality assurance",
+          "qa",
+          "tester",
+          "test engineer",
+          "testing engineer",
+          "quality control"
+        ],
+        "system-administrator": [
+          "system administrator",
+          "system admin",
+          "sysadmin",
+          "it administrator",
+          "network administrator",
+          "infrastructure administrator",
+          "it support"
+        ],
+        "information-technology-engineer": [
+          "information technology engineer",
+          "it engineer",
+          "information-technology-engineer",
+          "it specialist",
+          "technical specialist"
+        ],
+        "business-intelligence-analyst": [
+          "business intelligence",
+          "bi analyst",
+          "business intelligence analyst",
+          "data visualization specialist",
+          "bi specialist"
+        ]
+      }
+    },
+    "vector_db": {
+      "model_name": "paraphrase-multilingual-MiniLM-L12-v2",
+      "output_dir": "data/vector_db"
+    }
+  },
+  "api": {
+    "host": "0.0.0.0",
+    "port": 8000,
+    "cors_origins": ["*"]
+  }
+}

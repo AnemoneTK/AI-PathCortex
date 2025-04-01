@@ -1,0 +1,6 @@
+Job Title: Data Scientist
+
+Skills: ‘Big Data’ tools (Hadoop, Spark, Storm, R, etc.); develop novel business insights from large data sets
+
+Salary:
+  - 8 - 12+ experience: 120,000 - 200,000

@@ -1,0 +1,6 @@
+Job Title: DevOps Engineer
+
+Skills: Build / maintain systems automating software development, deployment; skills include GitHub, virtualization, scripting; coordinate with release management; troubleshoot production environments
+
+Salary:
+  - 3 - 5+ experience: 60,000 - 120,000

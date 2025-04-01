@@ -1,0 +1,8 @@
+Job Title: Software Developer / Software Engineer (.NET)
+
+Skills: Web application development using the .NET framework; .NET Core, C#, C++, ASP.NET, VB.NET
+
+Salary:
+  - 1 - 3 experience: 30,000 - 55,000
+  - 3 - 5 experience: 55,000 - 70,000
+  - 5 - 8+ experience: 70,000 - 80,000

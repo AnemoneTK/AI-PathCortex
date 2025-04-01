@@ -1,0 +1,8 @@
+Job Title: Software Developer / Software Engineer (Java-based)
+
+Skills: Web application development using Java, Java EE, various frameworks (Spring, Struts, Hibernate, Eclipse, Grails, etc.)
+
+Salary:
+  - 1 - 3 experience: 30,000 - 60,000
+  - 3 - 5 experience: 60,000 - 75,000
+  - 5 - 8+ experience: 75,000 - 100,000

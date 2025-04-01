@@ -1,0 +1,8 @@
+Job Title: BI Developer / Data Modeler
+
+Skills: ETL tools, custom dashboard development; Cognos, SAS, Business Objects, Hyperion, QlikView, Tableau, Crystal Reports, etc.
+
+Salary:
+  - 1 - 3 experience: 30,000 - 50,000
+  - 3 - 5 experience: 50,000 - 80,000
+  - 5 - 8+ experience: 80,000 - 150,000

@@ -1,0 +1,8 @@
+Job Title: Data Engineer / Data Analyst
+
+Skills: Create storage sources, extract and transfer data, and improve the performance of data structures.
+Tools: Python, Spark, SQL, ETL Process, Data Lake, Data Warehousing
+
+Salary:
+  - 1 - 3 experience: 30,000 - 60,000
+  - 3 - 5+ experience: 60,000 - 100,000

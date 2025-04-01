@@ -1,0 +1,7 @@
+Job Title: Full Stack Developer
+
+Skills: Design / develop front-end and back-end code using multiple programming languages and databases, DB management tools, MVC architecture, microservices, APIs, Agile methodology (Similar salaries paid for Python, Ruby, other hard-to-find skills)
+
+Salary:
+  - 3 - 5 experience: 60,000 - 80,000
+  - 5 - 8+ experience: 80,000 - 120,000

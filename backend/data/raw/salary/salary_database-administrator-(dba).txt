@@ -1,0 +1,7 @@
+Job Title: Database Administrator (DBA)
+
+Skills: Install, configure, monitor, tune, upgrade databases (Oracle, SQL-Server, MySQL, etc.)
+
+Salary:
+  - 3 - 5 experience: 50,000 - 80,000
+  - 5 - 8+ experience: 80,000 - 120,000

@@ -1,0 +1,8 @@
+Job Title: Front-End Developer
+
+Skills: JavaScript, jQuery, JSON, Ajax, React, Angular, Vue, Bootstrap; CSS, HTML; may also include UI / UX design
+
+Salary:
+  - 1 - 3 experience: 30,000 - 60,000
+  - 3 - 5 experience: 60,000 - 80,000
+  - 5 - 8+ experience: 80,000 - 100,000
