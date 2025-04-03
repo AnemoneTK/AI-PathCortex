@@ -2,7 +2,7 @@
 
 ข้อมูลจาก: [https://www.talance.tech/blog/it-job-responsibility/](https://www.talance.tech/blog/it-job-responsibility/)
 
-วันที่ดึงข้อมูล: 2025-04-02 09:59:48
+วันที่ดึงข้อมูล: 2025-04-02 01:57:26
 
 จำนวนตำแหน่งงานทั้งหมด: 36
 

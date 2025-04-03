@@ -11,7 +11,7 @@
 - **Responsibilities**: 3 items
 
 ### software-engineer
-- **Original Titles**: Machine Learning Engineer, Cloud Technology Engineer, Software Developer, Network Engineer, Software Engineer, System Engineer, System Engineer / System Administrator, Software analyst, Software Developer / Software Engineer (.NET), Software Development Manager, DevOps Engineer, Software Solution Architect / System Architect, Network Engineer / Network Operations Center, Information Technology Engineer, Security Engineer, Software Developer / Software Engineer (Java-based)
+- **Original Titles**: System Engineer / System Administrator, Network Engineer, Cloud Technology Engineer, Software Developer, Software Development Manager, Software Solution Architect / System Architect, Software analyst, Software Developer / Software Engineer (.NET), Network Engineer / Network Operations Center, DevOps Engineer, System Engineer, Software Developer / Software Engineer (Java-based), Security Engineer, Information Technology Engineer, Machine Learning Engineer, Software Engineer
 - **Skills**: 43 skills
 - **Salary Ranges**: 16 ranges
 - **Responsibilities**: 38 items
@@ -23,37 +23,37 @@
 - **Responsibilities**: 0 items
 
 ### software-developer
-- **Original Titles**: Programmer, Programmer / Programmer Analyst  (RPG, COBOL), Applications Developer
+- **Original Titles**: Applications Developer, Programmer / Programmer Analyst  (RPG, COBOL), Programmer
 - **Skills**: 1 skills
 - **Salary Ranges**: 3 ranges
 - **Responsibilities**: 8 items
 
 ### ux-designer
-- **Original Titles**: UX UI Designer, UX Designer, Webdesigner, Web Designer / Graphic Designer, UI designer
+- **Original Titles**: Web Designer / Graphic Designer, Webdesigner, UX Designer, UI designer, UX UI Designer
 - **Skills**: 10 skills
 - **Salary Ranges**: 2 ranges
 - **Responsibilities**: 17 items
 
 ### backend-developer
-- **Original Titles**: Backend Developer, Back-end Developer
+- **Original Titles**: Back-end Developer, Backend Developer
 - **Skills**: 0 skills
 - **Salary Ranges**: 0 ranges
 - **Responsibilities**: 8 items
 
 ### qa-engineer
-- **Original Titles**: Testing Engineer, Test analyst, Software Tester / QA Engineer / UAT Specialist, Software Quality Assurance Manager / Testing Manager, สายงาน QA/Tester, System Analyst, System analyst
+- **Original Titles**: สายงาน QA/Tester, Software Tester / QA Engineer / UAT Specialist, System Analyst, Testing Engineer, Test analyst, Software Quality Assurance Manager / Testing Manager, System analyst
 - **Skills**: 7 skills
 - **Salary Ranges**: 6 ranges
 - **Responsibilities**: 26 items
 
 ### frontend-developer
-- **Original Titles**: Front-end Developer, Front-End Developer, Frontend Developer
+- **Original Titles**: Front-end Developer, Frontend Developer, Front-End Developer
 - **Skills**: 9 skills
 - **Salary Ranges**: 3 ranges
 - **Responsibilities**: 12 items
 
 ### web-developer
-- **Original Titles**: Game Developer, Web Developer
+- **Original Titles**: Web Developer, Game Developer
 - **Skills**: 0 skills
 - **Salary Ranges**: 0 ranges
 - **Responsibilities**: 12 items
@@ -65,13 +65,13 @@
 - **Responsibilities**: 8 items
 
 ### data-analyst
-- **Original Titles**: Data Analyst, Data analyst, Data Engineer / Data Analyst, Business Analyst
+- **Original Titles**: Data analyst, Business Analyst, Data Engineer / Data Analyst, Data Analyst
 - **Skills**: 9 skills
 - **Salary Ranges**: 4 ranges
 - **Responsibilities**: 12 items
 
 ### project-manager
-- **Original Titles**: IT Security Manager, Project Manager / Service Delivery Manager, Information Technology Project Manager, IT Project Manager
+- **Original Titles**: IT Project Manager, Project Manager / Service Delivery Manager, IT Security Manager, Information Technology Project Manager
 - **Skills**: 3 skills
 - **Salary Ranges**: 1 ranges
 - **Responsibilities**: 15 items
@@ -95,7 +95,7 @@
 - **Responsibilities**: 4 items
 
 ### system-administrator
-- **Original Titles**: Helpdesk / IT Support, Network Security Administrator, IT Support, Network Administrator
+- **Original Titles**: Network Administrator, Network Security Administrator, IT Support, Helpdesk / IT Support
 - **Skills**: 7 skills
 - **Salary Ranges**: 3 ranges
 - **Responsibilities**: 10 items
@@ -107,7 +107,7 @@
 - **Responsibilities**: 11 items
 
 ### business-intelligence-analyst
-- **Original Titles**: Business Intelligence Analyst, Implementation Consultant (ERP / CRM / Business Intelligence / Data Warehouse)
+- **Original Titles**: Implementation Consultant (ERP / CRM / Business Intelligence / Data Warehouse), Business Intelligence Analyst
 - **Skills**: 9 skills
 - **Salary Ranges**: 2 ranges
 - **Responsibilities**: 6 items
@@ -155,7 +155,7 @@
 - **Responsibilities**: 3 items
 
 ### mobile-developer
-- **Original Titles**: Mobile Developer, Mobile developer
+- **Original Titles**: Mobile developer, Mobile Developer
 - **Skills**: 8 skills
 - **Salary Ranges**: 3 ranges
 - **Responsibilities**: 6 items

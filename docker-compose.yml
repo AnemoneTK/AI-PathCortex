@@ -1,5 +1,15 @@
 services:
-  # Backend API
+  db:
+    image: sha256:b6268ee8b04f1895e47ff4392686d2586de275d754dd1930fff2b0f087d366d2
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: PCT_admin
+      POSTGRES_PASSWORD: pct1234
+      POSTGRES_DB: pctdb
+    ports:
+      - "5430:5432"
+    restart: always
+
   backend:
     build:
       context: ./backend

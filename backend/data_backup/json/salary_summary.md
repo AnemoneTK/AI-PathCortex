@@ -2,7 +2,7 @@
 
 ข้อมูลจาก: [https://www.ismtech.net/th/it-salary-report/](https://www.ismtech.net/th/it-salary-report/)
 
-วันที่ดึงข้อมูล: 2025-04-02 09:59:48
+วันที่ดึงข้อมูล: 2025-04-01 23:36:59
 
 จำนวนตำแหน่งงานทั้งหมด: 41
 
