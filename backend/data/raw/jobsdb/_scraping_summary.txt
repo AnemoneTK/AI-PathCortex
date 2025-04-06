@@ -1,6 +1,0 @@
-Total job titles: 24
-Successfully scraped: 22
-Failed to scrape: 2
-Failed job titles:
-- machine-learning-engineer
-- cloud-engineer

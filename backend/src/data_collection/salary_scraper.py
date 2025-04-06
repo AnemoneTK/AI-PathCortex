@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-โปรแกรมดึงข้อมูลเงินเดือนตำแหน่งงาน IT
-
-โปรแกรมนี้จะดึงข้อมูลเงินเดือนสำหรับตำแหน่งงานไอทีจากเว็บไซต์ ISM Technology
-และบันทึกผลลัพธ์เป็นไฟล์ JSON และ Markdown ที่มีโครงสร้างเหมาะสมสำหรับนำไปใช้ในระบบให้คำปรึกษาอาชีพ
-"""
 
 import os
 import sys
@@ -20,8 +14,8 @@ from urllib3.exceptions import InsecureRequestWarning
 import requests
 from bs4 import BeautifulSoup
 from bs4.element import Tag
-from tqdm import tqdm  # เพิ่ม progress bar ให้สวยงาม
-import colorama  # เพิ่มสีสันให้กับข้อความในเทอร์มินัล
+from tqdm import tqdm
+import colorama
 
 # เริ่มต้นใช้งาน colorama
 colorama.init()
@@ -42,7 +36,7 @@ class Colors:
     UNDERLINE = '\033[4m'
 
 # สร้างโฟลเดอร์สำหรับเก็บล็อก
-log_dir = Path("src/logs")
+log_dir = Path("logs")
 log_dir.mkdir(parents=True, exist_ok=True)
 
 # ตั้งค่าการบันทึกล็อก
@@ -57,22 +51,10 @@ logging.basicConfig(
 logger = logging.getLogger("salary_scraper")
 
 class ISMTechSalaryScraper:
-    """
-    คลาสสำหรับการดึงข้อมูลเงินเดือนจากเว็บไซต์ ISM Technology
-    """
     def __init__(self, url: str = "https://www.ismtech.net/th/it-salary-report/", 
                  output_folder: str = "data/raw/other_sources", 
                  filename: str = "it_salary_data.json",
                  timeout: int = 30):
-        """
-        เริ่มต้นการทำงานของ scraper
-        
-        Args:
-            url: URL ของเว็บไซต์ที่ต้องการดึงข้อมูล (ค่าเริ่มต้นคือ ISM Technology)
-            output_folder: โฟลเดอร์สำหรับบันทึกข้อมูล
-            filename: ชื่อไฟล์ JSON ที่จะบันทึก
-            timeout: เวลาหมดเวลาในการร้องขอ (วินาที)
-        """
         self.base_url = url
         self.output_folder = output_folder
         self.filename = filename
@@ -96,7 +78,6 @@ class ISMTechSalaryScraper:
         self.job_data = {}
     
     def backup_existing_file(self) -> None:
-        """สำรองไฟล์ที่มีอยู่แล้วก่อนเขียนทับ"""
         if os.path.exists(self.json_file_path):
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             backup_file = f"{os.path.splitext(self.json_file_path)[0]}_{timestamp}.json"
@@ -111,12 +92,6 @@ class ISMTechSalaryScraper:
                 print(f"{Colors.FAIL}❌ ไม่สามารถสำรองไฟล์เดิมได้: {str(e)}{Colors.ENDC}")
     
     def fetch_page(self) -> Optional[BeautifulSoup]:
-        """
-        ดึงข้อมูลจากเว็บไซต์
-        
-        Returns:
-            BeautifulSoup object หรือ None ถ้าเกิดข้อผิดพลาด
-        """
         try:
             logger.info(f"กำลังดึงข้อมูลจาก {self.base_url}")
             print(f"{Colors.CYAN}🌐 กำลังดึงข้อมูลจาก {self.base_url}{Colors.ENDC}")
@@ -152,15 +127,6 @@ class ISMTechSalaryScraper:
             return None
     
     def extract_salary_data(self, soup: BeautifulSoup) -> Dict[str, Any]:
-        """
-        สกัดข้อมูลเงินเดือนจาก BeautifulSoup object
-        
-        Args:
-            soup: BeautifulSoup object ที่มีข้อมูล HTML
-            
-        Returns:
-            พจนานุกรมที่มีข้อมูลเงินเดือน
-        """
         try:
             logger.info("กำลังสกัดข้อมูลเงินเดือน")
             print(f"{Colors.CYAN}🔍 กำลังสกัดข้อมูลเงินเดือน...{Colors.ENDC}")
@@ -245,16 +211,6 @@ class ISMTechSalaryScraper:
             return {}
     
     def _validate_salary_data(self, experience: str, salary: str) -> bool:
-        """
-        ตรวจสอบความถูกต้องของข้อมูลประสบการณ์และเงินเดือน
-        
-        Args:
-            experience: ข้อมูลประสบการณ์
-            salary: ข้อมูลเงินเดือน
-            
-        Returns:
-            True ถ้าข้อมูลถูกต้อง, False ถ้าไม่ถูกต้อง
-        """
         # ตรวจสอบว่าข้อมูลไม่ว่าง
         if not experience or not salary:
             return False
@@ -271,12 +227,6 @@ class ISMTechSalaryScraper:
         return True
     
     def save_to_json(self) -> bool:
-        """
-        บันทึกข้อมูลลงในไฟล์ JSON
-        
-        Returns:
-            True ถ้าบันทึกสำเร็จ, False ถ้าไม่สำเร็จ
-        """
         if not self.job_data:
             logger.error("ไม่มีข้อมูลที่จะบันทึก")
             print(f"{Colors.FAIL}❌ ไม่มีข้อมูลที่จะบันทึก{Colors.ENDC}")
@@ -302,12 +252,6 @@ class ISMTechSalaryScraper:
             return False
     
     def create_summary_file(self) -> bool:
-        """
-        สร้างไฟล์สรุปข้อมูลเงินเดือน
-        
-        Returns:
-            True ถ้าสร้างสำเร็จ, False ถ้าไม่สำเร็จ
-        """
         if not self.job_data:
             logger.error("ไม่มีข้อมูลที่จะสรุป")
             print(f"{Colors.FAIL}❌ ไม่มีข้อมูลที่จะสรุป{Colors.ENDC}")
@@ -349,12 +293,6 @@ class ISMTechSalaryScraper:
             return False
     
     def scrape(self) -> Dict[str, Any]:
-        """
-        ดึงข้อมูลเงินเดือนทั้งหมด
-        
-        Returns:
-            ผลลัพธ์การดึงข้อมูล
-        """
         print(f"\n{Colors.BOLD}{Colors.HEADER}===== ISM Tech Salary Scraper ====={Colors.ENDC}\n")
         
         # สำรองไฟล์เดิม
@@ -395,14 +333,11 @@ class ISMTechSalaryScraper:
 
 
 def main():
-    """
-    ฟังก์ชันหลักสำหรับการดึงข้อมูลเงินเดือน
-    """
     # สร้างตัวแยกวิเคราะห์อาร์กิวเมนต์
     parser = argparse.ArgumentParser(description='เครื่องมือดึงข้อมูลเงินเดือนตำแหน่งงาน IT จาก ISM Technology')
     parser.add_argument('-u', '--url', type=str, default="https://www.ismtech.net/th/it-salary-report/",
                         help='URL ของเว็บไซต์ที่ต้องการดึงข้อมูล')
-    parser.add_argument('-o', '--output', type=str, default="data/json",
+    parser.add_argument('-o', '--output', type=str, default="data/raw/other_sources",
                         help='พาธของโฟลเดอร์ที่ต้องการบันทึกผลลัพธ์')
     parser.add_argument('-f', '--filename', type=str, default="it_salary_data.json",
                         help='ชื่อไฟล์ JSON ที่ต้องการบันทึกผลลัพธ์')

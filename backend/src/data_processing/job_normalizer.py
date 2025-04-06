@@ -1,381 +1,407 @@
+import json
 import os
 import re
-import json
-import logging
-from typing import Dict, List, Any, Optional
-from difflib import SequenceMatcher
+from typing import Dict, Any, List, Set
+from pathlib import Path
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from src.utils.text_processor import TextProcessor  # Import the TextProcessor
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("src/logs/json_normalizer.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger("job_normalizer_json")
+class JobDataNormalizer:
+    def __init__(self, 
+                 jobs_data_path: str = 'data/raw/other_sources/jobs_data.json',
+                 job_responsibilities_path: str = 'data/raw/other_sources/job_responsibilities.json', 
+                 it_salary_data_path: str = 'data/raw/other_sources/it_salary_data.json',
+                 output_dir: str = 'data/processed/normalized_jobs'):
+        """
+        Initialize the job data normalizer with paths to input files and output directory
+        """
+        self.jobs_data_path = jobs_data_path
+        self.job_responsibilities_path = job_responsibilities_path
+        self.it_salary_data_path = it_salary_data_path
+        self.output_dir = output_dir
+        
+        # Ensure output directory exists
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        
+        # Job title normalization mapping
+        self.job_title_mapping = {
+            # Software Engineering
+            "software engineer": "software-engineer",
+            "software developer": "software-engineer",
+            "programmer": "software-engineer",
+            "applications developer": "software-engineer",
+            
+            # Frontend Development
+            "frontend developer": "web-developer",
+            "front-end developer": "web-developer",
+            "front end developer": "web-developer",
+            
+            
+            # UX/UI Design
+            "web designer": "ux-ui-designer",
+            "webdesigner": "ux-ui-designer",
+            "ux designer": "ux-ui-designer",
+            "ui designer": "ux-ui-designer",
+            "ux  ui designer": "ux-ui-designer",
+            "user experience designer": "ux-ui-designer",
+            
+            # Backend Development
+            "backend developer": "web-developer",
+            "back-end developer": "web-developer",
+            "back end developer": "web-developer",
+            
+            # Full Stack Development
+            "full stack developer": "web-developer",
+            "full-stack developer": "web-developer",
+            "web developer": "web-developer",
 
-class JSONJobNormalizer:
-    """
-    Class to normalize and merge job data from JSON sources
-    """
-    def __init__(self, raw_data_folder: str = "data/raw", output_folder: str = "data/processed"):
-        self.raw_data_folder = raw_data_folder
-        self.output_folder = output_folder
-        self.similarity_threshold = 0.75
-        
-        # Create output directory if it doesn't exist
-        os.makedirs(output_folder, exist_ok=True)
-        
-        # Define job groups with their keywords and classifications
-        self.job_groups = {
-            "software-engineer": {
-                "keywords": [
-                    "software engineer", "software-engineer", "วิศวกรซอฟต์แวร์", 
-                    "software development engineer", "engineer", "software"
-                ],
-                "incompatible_with": ["test", "qa", "quality", "data", "business intelligence", "web", "frontend"]
-            },
-            "software-developer": {
-                "keywords": [
-                    "software developer", "software-developer", "programmer", "coder",
-                    "นักพัฒนาซอฟต์แวร์", "software development", "applications-developer",
-                    "applications developer", "programmer", "software analyst"
-                ],
-                "incompatible_with": ["test", "qa", "quality", "data", "business intelligence", "web", "frontend"]
-            },
-            "web-developer": {
-                "keywords": [
-                    "web developer", "web-developer", "web development", "นักพัฒนาเว็บ",
-                    "website developer"
-                ],
-                "incompatible_with": ["android", "ios", "mobile", "test", "qa"]
-            },
-            "frontend-developer": {
-                "keywords": [
-                    "frontend", "front end", "front-end", "frontend developer", 
-                    "frontend-developer", "front-end developer", "front end developer",
-                    "ui developer"
-                ],
-                "incompatible_with": ["backend", "back end", "back-end", "android", "ios", "data"]
-            },
-            "backend-developer": {
-                "keywords": [
-                    "backend", "back end", "back-end", "backend developer",
-                    "backend-developer", "back-end developer", "back end developer",
-                    "server side developer"
-                ],
-                "incompatible_with": ["frontend", "front end", "front-end", "android", "ios", "data"]
-            },
-            "full-stack-developer": {
-                "keywords": [
-                    "full stack", "fullstack", "full-stack", "full stack developer",
-                    "fullstack developer", "full-stack developer", "full-stack-developer"
-                ],
-                "incompatible_with": ["android", "ios", "data", "test", "qa"]
-            },
-            "mobile-developer": {
-                "keywords": [
-                    "mobile developer", "mobile-developer", "mobile app developer",
-                    "นักพัฒนาแอพ", "mobile application developer"
-                ],
-                "incompatible_with": ["web", "backend", "data", "test", "qa"]
-            },
-            "android-developer": {
-                "keywords": [
-                    "android developer", "android-developer", "android app developer",
-                    "นักพัฒนาแอนดรอยด์", "android programmer", "android"
-                ],
-                "incompatible_with": ["ios", "iphone", "web", "backend", "data", "test", "qa"]
-            },
-            "ios-developer": {
-                "keywords": [
-                    "ios developer", "ios-developer", "ios app developer",
-                    "นักพัฒนา ios", "swift developer", "iphone developer"
-                ],
-                "incompatible_with": ["android", "web", "backend", "data", "test", "qa"]
-            },
-            "ux-designer": {
-                "keywords": [
-                    "ux designer", "ux-designer", "ui designer", "ui-designer", "ux/ui designer",
-                    "user experience", "user interface", "webdesigner", "web designer"
-                ],
-                "incompatible_with": ["developer", "engineer", "data", "test", "qa"]
-            },
-            "data-scientist": {
-                "keywords": [
-                    "data scientist", "data-scientist", "นักวิทยาศาสตร์ข้อมูล",
-                    "machine learning engineer", "ml engineer", "ai engineer"
-                ],
-                "incompatible_with": ["developer", "web", "frontend", "backend", "android", "ios", "test", "qa"]
-            },
-            "data-analyst": {
-                "keywords": [
-                    "data analyst", "data-analyst", "นักวิเคราะห์ข้อมูล", 
-                    "data analytics", "business analyst"
-                ],
-                "incompatible_with": ["developer", "web", "frontend", "backend", "android", "ios", "test", "qa"]
-            },
-            "devops-engineer": {
-                "keywords": [
-                    "devops engineer", "devops-engineer", "devops", "dev ops",
-                    "site reliability engineer", "sre", "deployment engineer",
-                    "infrastructure engineer"
-                ],
-                "incompatible_with": ["data", "frontend", "android", "ios", "test", "qa"]
-            },
-            "project-manager": {
-                "keywords": [
-                    "project manager", "it project manager", "information technology project manager",
-                    "project management", "it project lead", "project lead", "scrum master"
-                ],
-                "incompatible_with": ["developer", "engineer", "data", "test", "qa"]
-            },
-            "qa-engineer": {
-                "keywords": [
-                    "qa engineer", "quality assurance", "qa", "tester", "test engineer",
-                    "testing engineer", "quality control", "test analyst"
-                ],
-                "incompatible_with": ["developer", "frontend", "backend", "data", "android", "ios"]
-            },
-            "system-administrator": {
-                "keywords": [
-                    "system administrator", "system admin", "sysadmin", "it administrator",
-                    "network administrator", "infrastructure administrator", "it support"
-                ],
-                "incompatible_with": ["developer", "engineer", "data", "frontend", "backend"]
-            },
-            "business-intelligence-analyst": {
-                "keywords": [
-                    "business intelligence", "bi analyst", "business intelligence analyst",
-                    "data visualization specialist", "bi specialist"
-                ],
-                "incompatible_with": ["developer", "engineer", "frontend", "backend", "android", "ios"]
-            }
+            
+            # Mobile Development
+            "android developer": "mobile-developer",
+            "ios developer": "mobile-developer",
+            "mobile developer": "mobile-developer",
+            
+            # Data-related roles
+            "data scientist": "data-scientist",
+            "data analyst": "data-analyst",
+            "data engineer": "data-engineer",
+            "business intelligence analyst": "bi-analyst",
+            "bi developer": "bi-developer",
+            "data modeler": "data-modeler",
+            "data architecture": "data-architect",
+            
+            # DevOps and Infrastructure
+            "devops engineer": "devops-engineer",
+            "devops": "devops-engineer",
+            "cloud technology engineer": "cloud-engineer",
+            "system engineer": "system-engineer",
+            "system administrator": "system-administrator",
+            "network engineer": "network-engineer",
+            "network administrator": "network-administrator",
+            "database administrator": "database-administrator",
+            "dba": "database-administrator",
+            
+            # Security roles
+            "security engineer": "security-engineer",
+            "security analyst": "security-analyst",
+            "network security administrator": "security-administrator",
+            "cybersecurity specialist": "cybersecurity-specialist",
+            "it security manager": "security-manager",
+            
+            # Testing/QA roles
+            "software tester": "qa-engineer",
+            "qa engineer": "qa-engineer",
+            "uat specialist": "qa-engineer",
+            "quality analyst": "qa-engineer",
+            "test analyst": "qa-engineer",
+            "testing engineer": "qa-engineer",
+            
+            # Management and analysis roles
+            "project manager": "project-manager",
+            "it project manager": "project-manager",
+            "information technology project manager": "project-manager",
+            "scrum master": "scrum-master",
+            "business analyst": "business-analyst",
+            "systems analyst": "systems-analyst",
+            "system analyst": "systems-analyst",
+            "software analyst": "systems-analyst",
+            
+            # Senior roles
+            "software development manager": "software-development-manager",
+            "it manager": "software-development-manager",
+            "it director": "software-development-manager",
+            "digital technology director": "software-development-manager",
+            "cio": "software-development-manager",
+            "chief information officer": "software-development-manager",
+            "cto": "software-development-manager",
+            "chief technology officer": "software-development-manager",
         }
-
+        
+        # Data storage
+        self.jobs_data = {}
+        self.job_responsibilities = {}
+        self.it_salary_data = {}
+        
     def normalize_job_title(self, job_title: str) -> str:
         """
-        Normalize job title to a standard group
+        Normalize job title using both custom mapping and TextProcessor
         
-        Args:
-            job_title: Raw job title to normalize
-            
-        Returns:
-            Normalized job group
+        :param job_title: Original job title
+        :return: Normalized job title
         """
-        # Convert to lowercase for easier matching
-        normalized_title = job_title.lower()
+        # First, use TextProcessor to clean the title
+        cleaned_title = TextProcessor.clean_text(job_title, lowercase=True)
         
-        # First, check for direct matches
-        for group, group_data in self.job_groups.items():
-            for keyword in group_data["keywords"]:
-                if keyword.lower() in normalized_title:
-                    # Check for incompatible keywords
-                    is_compatible = True
-                    for incompatible in group_data["incompatible_with"]:
-                        if incompatible in normalized_title:
-                            is_compatible = False
-                            break
-                    
-                    if is_compatible:
-                        return group
+        # Convert to lowercase
+        lowered_title = cleaned_title.lower().strip()
         
-        # If no direct match, use similarity
-        best_match = None
-        best_score = 0
+        # Check exact match first
+        if lowered_title in self.job_title_mapping:
+            return self.job_title_mapping[lowered_title]
         
-        for group, group_data in self.job_groups.items():
-            for keyword in group_data["keywords"]:
-                similarity = SequenceMatcher(None, normalized_title, keyword.lower()).ratio()
+        # Try partial matches
+        for key, value in self.job_title_mapping.items():
+            if key in lowered_title:
+                return value
+        
+        # If no match, create a slug from the original title
+        return re.sub(r'[^\w\s-]', '', lowered_title).replace(' ', '-').lower()
+    
+    def load_data(self):
+        """Load data from JSON files"""
+        try:
+            with open(self.jobs_data_path, 'r', encoding='utf-8') as f:
+                self.jobs_data = json.load(f)
+            
+            with open(self.job_responsibilities_path, 'r', encoding='utf-8') as f:
+                self.job_responsibilities = json.load(f)
+            
+            with open(self.it_salary_data_path, 'r', encoding='utf-8') as f:
+                self.it_salary_data = json.load(f)
+            
+            print("Successfully loaded all data files.")
+        
+        except FileNotFoundError as e:
+            print(f"Error: {e}")
+            raise
+    
+    def consolidate_salary_ranges(self, salary_ranges, titles):
+        """
+        Consolidate and normalize salary ranges with detailed job titles
+        
+        :param salary_ranges: List of salary range dictionaries
+        :param titles: List of job titles
+        :return: Consolidated list of detailed salary ranges
+        """
+        # Create a dictionary to store consolidated ranges
+        consolidated_ranges = {}
+        
+        for entry in salary_ranges:
+            experience = entry.get('experience', '').strip()
+            salary = entry.get('salary', '').strip()
+            
+            # Skip empty entries
+            if not experience or not salary:
+                continue
+            
+            # If this experience level doesn't exist, add it
+            if experience not in consolidated_ranges:
+                try:
+                    consolidated_ranges[experience] = {
+                        'min_salary': float(salary.split(' - ')[0].replace(',', '')),
+                        'max_salary': float(salary.split(' - ')[1].replace(',', '')),
+                        'titles': titles
+                    }
+                except (ValueError, IndexError):
+                    # Skip if salary parsing fails
+                    continue
+                continue
+            
+            # Try to merge salary ranges
+            try:
+                # Split existing and new salary ranges
+                existing_min = consolidated_ranges[experience]['min_salary']
+                existing_max = consolidated_ranges[experience]['max_salary']
                 
-                if similarity > best_score and similarity >= self.similarity_threshold:
-                    # Check for incompatible keywords
-                    is_compatible = True
-                    for incompatible in group_data["incompatible_with"]:
-                        if incompatible in normalized_title:
-                            is_compatible = False
-                            break
-                    
-                    if is_compatible:
-                        best_match = group
-                        best_score = similarity
-        
-        # If no good match, return a generic normalized version
-        if best_match:
-            return best_match
-        
-        # Last resort: create a generic group name
-        normalized = re.sub(r'[^a-z0-9-]', '-', normalized_title.replace(' ', '-'))
-        return normalized
-
-    def merge_job_data(self, jobs_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Merge job data from different sources
-        
-        Args:
-            jobs_data: Dictionary of job data from different sources
-            
-        Returns:
-            Merged job data
-        """
-        merged_jobs = {}
-        
-        for job_title, job_info in jobs_data.items():
-            # Normalize job title
-            normalized_title = self.normalize_job_title(job_title)
-            
-            # Initialize merged job entry if not exists
-            if normalized_title not in merged_jobs:
-                merged_jobs[normalized_title] = {
-                    "id": normalized_title,
-                    "titles": set([job_title]),
-                    "skills": set(),
-                    "description": "",
-                    "responsibilities": set(),
-                    "salary_info": [],
-                    "sources": set()
+                new_min, new_max = map(float, salary.replace(',', '').split(' - '))
+                
+                # Calculate new min and max
+                merged_min = min(existing_min, new_min)
+                merged_max = max(existing_max, new_max)
+                
+                # Update the consolidated range
+                consolidated_ranges[experience] = {
+                    'min_salary': merged_min,
+                    'max_salary': merged_max,
+                    'titles': list(set(consolidated_ranges[experience]['titles'] + titles))
                 }
             
-            # Merge titles
-            merged_jobs[normalized_title]["titles"].add(job_title)
-            
-            # Merge skills
-            if "skills" in job_info:
-                merged_skills = job_info["skills"].split(", ") if isinstance(job_info["skills"], str) else job_info["skills"]
-                merged_jobs[normalized_title]["skills"].update(merged_skills)
-            
-            # Merge description (prefer longer description)
-            if "description" in job_info:
-                if len(job_info["description"]) > len(merged_jobs[normalized_title]["description"]):
-                    merged_jobs[normalized_title]["description"] = job_info["description"]
-            
-            # Merge responsibilities
-            if "responsibilities" in job_info:
-                if isinstance(job_info["responsibilities"], list):
-                    merged_jobs[normalized_title]["responsibilities"].update(job_info["responsibilities"])
-                elif isinstance(job_info["responsibilities"], str):
-                    # If it's a string, split by comma or newline
-                    responsibilities = re.split(r'[,\n]', job_info["responsibilities"])
-                    merged_jobs[normalized_title]["responsibilities"].update(
-                        [resp.strip() for resp in responsibilities if resp.strip()]
-                    )
-            
-            # Merge salary information
-            if "salary" in job_info:
-                for salary_entry in job_info["salary"]:
-                    # Check if this salary entry is already in the list
-                    is_duplicate = False
-                    for existing_salary in merged_jobs[normalized_title]["salary_info"]:
-                        if (existing_salary.get("experience") == salary_entry.get("experience") and 
-                            existing_salary.get("salary") == salary_entry.get("salary")):
-                            is_duplicate = True
-                            break
-                    
-                    if not is_duplicate:
-                        merged_jobs[normalized_title]["salary_info"].append(salary_entry)
-            
-            # Add source
-            merged_jobs[normalized_title]["sources"].add(job_title)
+            except (ValueError, TypeError, IndexError):
+                # If parsing fails, keep the first encountered range
+                pass
         
-        # Convert sets back to lists for JSON serialization
-        for job_id, job_data in merged_jobs.items():
-            job_data["titles"] = list(job_data["titles"])
-            job_data["skills"] = list(job_data["skills"])
-            job_data["responsibilities"] = list(job_data["responsibilities"])
-            job_data["sources"] = list(job_data["sources"])
-        
-        return merged_jobs
+        # Convert back to list of dictionaries with formatted output
+        return [
+            {
+                "experience": exp, 
+                "salary": f"{consolidated_ranges[exp]['min_salary']:,.0f} - {consolidated_ranges[exp]['max_salary']:,.0f}",
+                "titles": consolidated_ranges[exp]['titles']
+            } 
+            for exp in sorted(consolidated_ranges.keys(), key=lambda x: float(x.split(' - ')[0]))
+        ]
 
-    def load_json_files(self) -> Dict[str, Any]:
+    def merge_job_data(self, normalized_title: str) -> Dict[str, Any]:
         """
-        Load JSON files from the raw data folder
+        Merge job data from different sources for a given normalized job title
         
-        Returns:
-            Combined job data dictionary
+        :param normalized_title: Normalized job title
+        :return: Merged job data dictionary
         """
-        combined_jobs = {}
+        merged_data = {
+            "id": normalized_title,
+            "titles": [],
+            "descriptions": {},  # เปลี่ยนจาก string เป็น dict เพื่อเก็บ description แยกตามอาชีพ
+            "responsibilities": [],
+            "skills": [],
+            "salary_ranges": [],
+            "education_requirements": []
+        }
         
-        # Scan the raw data folder for JSON files
-        try:
-            json_files = [f for f in os.listdir(self.raw_data_folder) if f.endswith('.json')]
-        except OSError:
-            logger.error(f"Could not list files in {self.raw_data_folder}")
-            return combined_jobs
+        # Collect titles and salary ranges
+        collected_titles = []
+        collected_salary_ranges = []
         
-        for filename in json_files:
-            filepath = os.path.join(self.raw_data_folder, filename)
-            
-            try:
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    
-                # Skip files that are not dictionaries or have no job data
-                if not isinstance(data, dict) or not data:
-                    logger.warning(f"Skipping {filename}: no valid job data")
-                    continue
+        # Merge from jobs_data
+        for title, data in self.jobs_data.items():
+            norm_title = self.normalize_job_title(title)
+            if norm_title == normalized_title:
+                # Normalize and clean titles
+                normalized_titles = TextProcessor.normalize_job_titles([title])
+                merged_data["titles"].extend(normalized_titles)
+                collected_titles.extend(normalized_titles)
                 
-                # Merge with existing jobs, handling different structures
-                combined_jobs.update(data)
+                # Clean and process description - เก็บแยกตาม job title
+                if data.get("description"):
+                    clean_title = title.lower().strip()
+                    clean_desc = TextProcessor.clean_text(data["description"])
+                    merged_data["descriptions"][clean_title] = clean_desc
                 
-                logger.info(f"Loaded {filename} successfully")
-            except FileNotFoundError:
-                logger.warning(f"File not found: {filename}")
-            except json.JSONDecodeError:
-                logger.error(f"Error decoding JSON from {filename}")
-            except Exception as e:
-                logger.error(f"Unexpected error processing {filename}: {str(e)}")
+                # Normalize responsibilities
+                if data.get("responsibilities"):
+                    normalized_resp = TextProcessor.normalize_responsibilities(data["responsibilities"])
+                    merged_data["responsibilities"].extend(normalized_resp)
+                
+                # Process education requirements
+                if data.get("education"):
+                    education_reqs = [TextProcessor.clean_text(edu) for edu in data["education"]]
+                    merged_data["education_requirements"].extend(education_reqs)
         
-        return combined_jobs
-
-    def process_job_data(self):
-        """
-        Main method to process and merge job data
-        """
-        # Load job data from JSON files
-        jobs_data = self.load_json_files()
+        # Merge from job_responsibilities
+        for title, data in self.job_responsibilities.items():
+            norm_title = self.normalize_job_title(title)
+            if norm_title == normalized_title:
+                # Clean description - เก็บแยกตาม job title
+                if data.get("description"):
+                    clean_title = title.lower().strip()
+                    clean_desc = TextProcessor.clean_text(data["description"])
+                    merged_data["descriptions"][clean_title] = clean_desc
+                
+                # Normalize responsibilities
+                if data.get("responsibilities"):
+                    normalized_resp = TextProcessor.normalize_responsibilities(data["responsibilities"])
+                    merged_data["responsibilities"].extend(normalized_resp)
         
-        # Merge job data
-        merged_jobs = self.merge_job_data(jobs_data)
+        # Merge from it_salary_data
+        for title, data in self.it_salary_data.items():
+            norm_title = self.normalize_job_title(title)
+            if norm_title == normalized_title:
+                # Normalize titles
+                normalized_titles = TextProcessor.normalize_job_titles([title])
+                collected_titles.extend(normalized_titles)
+                
+                # Normalize skills
+                if data.get("skills"):
+                    normalized_skills = TextProcessor.normalize_skills(data["skills"])
+                    merged_data["skills"].extend(normalized_skills)
+                
+                # Collect salary ranges
+                if data.get("salary"):
+                    collected_salary_ranges.extend(data["salary"])
         
-        # Prepare output folders
-        os.makedirs(self.output_folder, exist_ok=True)
+        # Consolidate salary ranges with collected titles
+        merged_data["salary_ranges"] = self.consolidate_salary_ranges(
+            collected_salary_ranges, 
+            collected_titles
+        )
         
-        # Save merged jobs to JSON
-        merged_jobs_file = os.path.join(self.output_folder, "merged_jobs.json")
-        with open(merged_jobs_file, 'w', encoding='utf-8') as f:
-            json.dump(merged_jobs, f, ensure_ascii=False, indent=2)
+        # Remove duplicates and clean up
+        merged_data["titles"] = list(set(merged_data["titles"]))
+        merged_data["responsibilities"] = list(set(merged_data["responsibilities"]))
+        merged_data["skills"] = list(set(merged_data["skills"]))
+        merged_data["education_requirements"] = list(set(merged_data["education_requirements"]))
         
-        # Create a summary markdown
-        summary_file = os.path.join(self.output_folder, "README.md")
-        with open(summary_file, 'w', encoding='utf-8') as f:
-            f.write("# Job Data Merge Summary\n\n")
-            f.write(f"## Total Merged Job Groups: {len(merged_jobs)}\n\n")
-            f.write("## Job Groups\n\n")
+        # สร้าง description แยกตามอาชีพจาก merged_data["descriptions"]
+        # ถ้าไม่มี description เฉพาะสำหรับอาชีพใด ให้ใช้ค่าเริ่มต้น
+        title_specific_descriptions = {}
+        
+        for job_title in merged_data["titles"]:
+            title_lower = job_title.lower()
+            # ค้นหา description ที่ตรงกับอาชีพนี้
+            found_desc = False
             
-            for job_id, job_data in merged_jobs.items():
-                f.write(f"### {job_data['id']}\n")
-                f.write(f"- **Original Titles**: {', '.join(job_data['titles'])}\n")
-                f.write(f"- **Skills**: {len(job_data['skills'])} skills\n")
-                f.write(f"- **Salary Ranges**: {len(job_data['salary_info'])} ranges\n")
-                f.write(f"- **Responsibilities**: {len(job_data['responsibilities'])} items\n\n")
+            # ลองหา description ที่มีชื่อตรงกับ title หรือมีคำที่เกี่ยวข้อง
+            for desc_title, desc in merged_data["descriptions"].items():
+                if (title_lower in desc_title) or (desc_title in title_lower):
+                    title_specific_descriptions[job_title] = desc
+                    found_desc = True
+                    break
+            
+            # ถ้าไม่เจอ description เฉพาะ สร้าง description มาตรฐานตามประเภทอาชีพ
+            if not found_desc:
+                title_specific_descriptions[job_title] = self.create_default_description(job_title)
         
-        logger.info(f"Processed {len(merged_jobs)} job groups")
-        logger.info(f"Merged job data saved to {merged_jobs_file}")
-        logger.info(f"Summary saved to {summary_file}")
         
-        return merged_jobs
+        # ยังคงเก็บ description เดิมไว้เพื่อความเข้ากันได้กับโค้ดเดิม
+        # ใช้ description แรกที่พบเป็นค่าเริ่มต้น
+        if merged_data["descriptions"]:
+            merged_data["description"] = list(merged_data["descriptions"].values())[0]
+        else:
+            # ถ้าไม่มี description เลย ใช้ description มาตรฐานของอาชีพแรก
+            if merged_data["titles"]:
+                merged_data["description"] = self.create_default_description(merged_data["titles"][0])
+            else:
+                merged_data["description"] = ""
+        
+        return merged_data
+    
+    def normalize_and_save_jobs(self):
+        """
+        Normalize job titles and save each category to a separate JSON file
+        """
+        # Collect all unique normalized job titles
+        all_normalized_titles = set()
+        
+        # From jobs_data
+        for title in self.jobs_data.keys():
+            all_normalized_titles.add(self.normalize_job_title(title))
+        
+        # From job_responsibilities
+        for title in self.job_responsibilities.keys():
+            all_normalized_titles.add(self.normalize_job_title(title))
+        
+        # From it_salary_data
+        for title in self.it_salary_data.keys():
+            all_normalized_titles.add(self.normalize_job_title(title))
+        
+        # Process and save each job category
+        for normalized_title in all_normalized_titles:
+            job_data = self.merge_job_data(normalized_title)
+            
+            # Only save if there's meaningful data
+            if job_data["titles"]:
+                output_path = os.path.join(self.output_dir, f"{normalized_title}.json")
+                
+                with open(output_path, 'w', encoding='utf-8') as f:
+                    json.dump(job_data, f, ensure_ascii=False, indent=2)
+                
+                print(f"Saved {output_path}")
+    
+    def process(self):
+        """
+        Main method to process and normalize job data
+        """
+        self.load_data()
+        self.normalize_and_save_jobs()
 
 def main():
-    """Main function to run the JSON job normalizer"""
-    normalizer = JSONJobNormalizer(
-        raw_data_folder="data/json",
-        output_folder="data/processed"
+    normalizer = JobDataNormalizer(
+        jobs_data_path='data/raw/other_sources/jobs_data.json',
+        job_responsibilities_path='data/raw/other_sources/job_responsibilities.json',
+        it_salary_data_path='data/raw/other_sources/it_salary_data.json',
+        output_dir='data/processed/normalized_jobs'
     )
-    
-    # Process job data
-    merged_jobs = normalizer.process_job_data()
+    normalizer.process()
 
 if __name__ == "__main__":
     main()

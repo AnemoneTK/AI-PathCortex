@@ -74,3 +74,6 @@
 # Key files และข้อมูลสำคัญ
 **/*.pem
 **/*.key
+
+**/backend/data_backup
+**/backup

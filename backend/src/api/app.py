@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Career AI Advisor - API Service
+Career AI Advisor - API Service (ใช้ FAISS โดยตรง)
 
-บริการ API สำหรับระบบ Career AI Advisor ที่ใช้ FastAPI และฐานข้อมูล PostgreSQL + pgvector
+บริการ API สำหรับระบบ Career AI Advisor ที่ใช้ FastAPI และ FAISS โดยตรง
 สำหรับให้บริการแนะนำอาชีพด้าน IT และตอบคำถามเกี่ยวกับอาชีพต่างๆ
 """
 
 import os
 import json
 import logging
-import psycopg
+import faiss
 import uvicorn
 import asyncio
 import numpy as np
@@ -55,15 +55,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ตั้งค่าการเชื่อมต่อฐานข้อมูล
-DB_NAME = os.getenv("DB_NAME", "pctdb")
-DB_USER = os.getenv("DB_USER", "PCT_admin")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "pct1234")
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = os.getenv("DB_PORT", "5430")
+# ปรับพาธให้สัมพัทธ์กับไฟล์ปัจจุบัน
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+FAISS_INDEX_PATH = os.getenv("FAISS_INDEX_PATH", os.path.join(BASE_DIR, "data/vector_db/job_knowledge/faiss_index.bin"))
+METADATA_PATH = os.getenv("METADATA_PATH", os.path.join(BASE_DIR, "data/vector_db/job_knowledge/job_metadata.json"))
 
 # ตั้งค่าโมเดล Embedding
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "paraphrase-multilingual-MiniLM-L12-v2")
+
 # AI Model Configuration
 LLM_MODEL = os.getenv("LLM_MODEL", "llama3.1:latest")
 LLM_API_BASE = os.getenv("LLM_API_BASE", "http://localhost:11434")
@@ -71,30 +70,17 @@ LLM_API_BASE = os.getenv("LLM_API_BASE", "http://localhost:11434")
 # API Key (ถ้ามี)
 API_KEY = os.getenv("API_KEY", "")
 
+# Global variables สำหรับ FAISS และ metadata
+faiss_index = None
+job_metadata = None
+
 # โหลดโมเดล SentenceTransformer
 try:
-    embedder = SentenceTransformer(f"sentence-transformers/{EMBEDDING_MODEL}")
+    embedder = SentenceTransformer(EMBEDDING_MODEL)
     logger.info(f"โหลดโมเดล {EMBEDDING_MODEL} เรียบร้อย")
 except Exception as e:
     logger.error(f"ไม่สามารถโหลดโมเดล {EMBEDDING_MODEL} ได้: {str(e)}")
     raise e
-
-# ฟังก์ชันสำหรับเชื่อมต่อฐานข้อมูล
-def get_db_connection():
-    """
-    สร้างการเชื่อมต่อกับฐานข้อมูล PostgreSQL
-    
-    Returns:
-        psycopg.Connection: การเชื่อมต่อกับฐานข้อมูล
-    """
-    try:
-        conn = psycopg.connect(
-            f"dbname={DB_NAME} user={DB_USER} password={DB_PASSWORD} host={DB_HOST} port={DB_PORT}"
-        )
-        return conn
-    except Exception as e:
-        logger.error(f"ไม่สามารถเชื่อมต่อกับฐานข้อมูลได้: {str(e)}")
-        return None
 
 # โมเดล Pydantic
 class QueryRequest(BaseModel):
@@ -106,7 +92,7 @@ class QueryResult(BaseModel):
     """ผลลัพธ์จากการค้นหา"""
     content: str = Field(..., description="เนื้อหาที่ค้นพบ")
     job_title: str = Field(..., description="ชื่อตำแหน่งงาน")
-    chunk_type: str = Field(..., description="ประเภทของข้อมูล")
+    type: str = Field(..., description="ประเภทของข้อมูล (description, responsibilities, skills)")
     similarity: float = Field(..., description="คะแนนความใกล้เคียง")
     
 class ChatRequest(BaseModel):
@@ -127,17 +113,124 @@ class JobFilter(BaseModel):
 class JobResponse(BaseModel):
     """ข้อมูลอาชีพ"""
     id: str = Field(..., description="รหัสอาชีพ")
-    job_key: str = Field(..., description="คีย์อาชีพ")
-    job_title: str = Field(..., description="ชื่อตำแหน่งงาน")
+    titles: List[str] = Field(..., description="ชื่อตำแหน่งงาน")
     description: str = Field(..., description="คำอธิบายอาชีพ")
     skills: List[str] = Field([], description="ทักษะที่ต้องการ")
     responsibilities: List[str] = Field([], description="ความรับผิดชอบ")
-    salary_info: List[Dict[str, str]] = Field([], description="ข้อมูลเงินเดือน")
+    salary_ranges: List[Dict[str, Any]] = Field([], description="ข้อมูลเงินเดือน")
     
 class JobSummary(BaseModel):
     """ข้อมูลสรุปอาชีพ"""
-    job_key: str = Field(..., description="คีย์อาชีพ")
-    job_title: str = Field(..., description="ชื่อตำแหน่งงาน")
+    id: str = Field(..., description="รหัสอาชีพ")
+    title: str = Field(..., description="ชื่อตำแหน่งงาน")
+
+# ฟังก์ชันสำหรับโหลด FAISS index และ metadata
+def load_faiss_and_metadata():
+    """
+    โหลด FAISS index และ metadata
+    
+    Returns:
+        tuple: (faiss_index, metadata)
+    """
+    global faiss_index, job_metadata
+    
+    # ตรวจสอบการมีอยู่ของไฟล์
+    if not os.path.exists(FAISS_INDEX_PATH):
+        logger.error(f"ไม่พบไฟล์ FAISS index ที่: {FAISS_INDEX_PATH}")
+        raise FileNotFoundError(f"ไม่พบไฟล์ FAISS index ที่: {FAISS_INDEX_PATH}")
+        
+    if not os.path.exists(METADATA_PATH):
+        logger.error(f"ไม่พบไฟล์ metadata ที่: {METADATA_PATH}")
+        raise FileNotFoundError(f"ไม่พบไฟล์ metadata ที่: {METADATA_PATH}")
+    
+    # ... (โค้ดที่เหลือเหมือนเดิม)
+    
+    try:
+        # โหลด FAISS index ถ้ายังไม่ได้โหลด
+        if faiss_index is None:
+            faiss_index = faiss.read_index(FAISS_INDEX_PATH)
+            logger.info(f"โหลด FAISS index สำเร็จ: {faiss_index.ntotal} vectors, dimension {faiss_index.d}")
+        
+        # โหลด metadata ถ้ายังไม่ได้โหลด
+        if job_metadata is None:
+            with open(METADATA_PATH, 'r', encoding='utf-8') as f:
+                job_metadata = json.load(f)
+            logger.info(f"โหลด metadata สำเร็จ: {len(job_metadata['job_ids'])} อาชีพ")
+        
+        return faiss_index, job_metadata
+    
+    except Exception as e:
+        logger.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูล: {str(e)}")
+        raise e
+
+# ฟังก์ชันสำหรับค้นหาข้อมูลโดยใช้ FAISS
+def search_with_faiss(query: str, limit: int = 5):
+    """
+    ค้นหาข้อมูลโดยใช้ FAISS
+    
+    Args:
+        query: คำค้นหา
+        limit: จำนวนผลลัพธ์ที่ต้องการ
+        
+    Returns:
+        list: ผลการค้นหา
+    """
+    index, metadata = load_faiss_and_metadata()
+    
+    # สร้าง embedding สำหรับคำค้นหา
+    query_vector = embedder.encode([query])
+    
+    # ค้นหาใน FAISS
+    distances, indices = index.search(query_vector, limit)
+    
+    # แปลงผลลัพธ์
+    results = []
+    for i, idx in enumerate(indices[0]):
+        if idx == -1:  # ถ้า FAISS ไม่พบผลลัพธ์
+            continue
+            
+        # ดึงข้อมูลจาก metadata
+        job_id = metadata["job_ids"][idx]
+        job_data = None
+        
+        # หาข้อมูลอาชีพจาก job_id
+        for job in metadata["job_data"]:
+            if job["id"] == job_id:
+                job_data = job
+                break
+        
+        if job_data is None:
+            continue
+        
+        # ประมวลผลประเภทของข้อมูล (description, responsibilities, skills, etc.)
+        content_type = "description"  # ค่าเริ่มต้น
+        content = job_data["description"]
+        
+        # สร้างข้อมูลสำหรับผลลัพธ์
+        job_title = job_data["titles"][0] if job_data["titles"] else job_id
+        
+        # คำนวณคะแนนความคล้ายคลึง (1 - ระยะทาง)
+        similarity = 1.0 - float(distances[0][i])
+        
+        results.append({
+            "content": content,
+            "job_title": job_title,
+            "type": content_type,
+            "similarity": similarity
+        })
+    
+    return results
+
+# Event: เมื่อเริ่ม app
+@app.on_event("startup")
+async def startup_event():
+    """ทำงานเมื่อเริ่มต้น API"""
+    try:
+        # โหลด FAISS และ metadata เพื่อตรวจสอบว่าทำงานได้
+        load_faiss_and_metadata()
+        logger.info("เริ่มต้น API สำเร็จ")
+    except Exception as e:
+        logger.error(f"เกิดข้อผิดพลาดในการเริ่มต้น API: {str(e)}")
 
 # API Routes
 @app.get("/", tags=["General"])
@@ -148,40 +241,23 @@ async def root():
 @app.post("/query", response_model=List[QueryResult], tags=["Search"])
 async def search_query(request: QueryRequest):
     """
-    ค้นหาข้อมูลด้วย semantic search
+    ค้นหาข้อมูลด้วย semantic search โดยใช้ FAISS
     """
     if not request.query.strip():
         raise HTTPException(status_code=400, detail="คำค้นหาต้องไม่เป็นค่าว่าง")
     
-    conn = get_db_connection()
-    if not conn:
-        raise HTTPException(status_code=500, detail="ไม่สามารถเชื่อมต่อฐานข้อมูลได้")
-    
     try:
-        # สร้าง embedding สำหรับคำค้นหา
-        query_embedding = embedder.encode(request.query).tolist()
+        # ค้นหาข้อมูลด้วย FAISS
+        results = search_with_faiss(request.query, request.limit)
         
-        cursor = conn.cursor()
-        # ใช้ฟังก์ชัน cosine_distance สำหรับการค้นหา (คะแนนยิ่งน้อยยิ่งดี)
-        cursor.execute('''
-            SELECT jv.content, j.job_title, jv.chunk_type, 
-                   (1 - (jv.embedding <=> %s::vector)) AS similarity
-            FROM job_vectors jv
-            JOIN jobs j ON jv.job_id = j.id
-            ORDER BY similarity DESC
-            LIMIT %s
-        ''', (query_embedding, request.limit))
-        
-        results = cursor.fetchall()
-        
-        # จัดรูปแบบผลลัพธ์
+        # แปลงผลลัพธ์เป็น QueryResult
         formatted_results = []
-        for content, job_title, chunk_type, similarity in results:
+        for result in results:
             formatted_results.append(QueryResult(
-                content=content,
-                job_title=job_title,
-                chunk_type=chunk_type,
-                similarity=float(similarity)
+                content=result["content"],
+                job_title=result["job_title"],
+                type=result["type"],
+                similarity=result["similarity"]
             ))
         
         return formatted_results
@@ -189,9 +265,6 @@ async def search_query(request: QueryRequest):
     except Exception as e:
         logger.error(f"เกิดข้อผิดพลาดในการค้นหา: {str(e)}")
         raise HTTPException(status_code=500, detail=f"เกิดข้อผิดพลาดในการค้นหา: {str(e)}")
-    
-    finally:
-        conn.close()
 
 @app.post("/chat", response_model=ChatResponse, tags=["Chat"])
 async def chat(request: ChatRequest):
@@ -202,63 +275,41 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=400, detail="คำถามต้องไม่เป็นค่าว่าง")
     
     try:
-        # ค้นหาข้อมูลที่เกี่ยวข้องจากฐานข้อมูล
-        conn = get_db_connection()
-        if not conn:
-            raise HTTPException(status_code=500, detail="ไม่สามารถเชื่อมต่อฐานข้อมูลได้")
+        # ค้นหาข้อมูลที่เกี่ยวข้องด้วย FAISS
+        search_results = search_with_faiss(request.query, limit=5)
         
-        try:
-            # สร้าง embedding สำหรับคำค้นหา
-            query_embedding = embedder.encode(request.query).tolist()
-            
-            cursor = conn.cursor()
-            # ใช้ฟังก์ชัน cosine_distance สำหรับการค้นหา
-            # หมายเหตุ: ไม่สามารถใช้ similarity ในส่วน WHERE ได้โดยตรง
-            # เพราะเป็น alias ที่คำนวณใน SELECT
-            cursor.execute('''
-                SELECT jv.content, j.job_title, jv.chunk_type, 
-                       (1 - (jv.embedding <=> %s::vector)) AS similarity
-                FROM job_vectors jv
-                JOIN jobs j ON jv.job_id = j.id
-                ORDER BY similarity DESC
-                LIMIT 5
-            ''', (query_embedding,))
-            
-            results = cursor.fetchall()
-            
-            # จัดรูปแบบผลลัพธ์เพื่อใช้ในการสร้างคำตอบ
-            sources = []
-            context_parts = []
-            
-            for content, job_title, chunk_type, similarity in results:
-                # กรองเฉพาะผลลัพธ์ที่มีความเกี่ยวข้องเพียงพอ
-                if similarity < 0.2:
-                    continue
-                    
-                sources.append({
-                    "content": content[:150] + "..." if len(content) > 150 else content,
-                    "job_title": job_title,
-                    "chunk_type": chunk_type,
-                    "similarity": float(similarity)
-                })
+        # เตรียมข้อมูลแหล่งข้อมูลและบริบท
+        sources = []
+        context_parts = []
+        
+        for result in search_results:
+            # กรองเฉพาะผลลัพธ์ที่มีความเกี่ยวข้องเพียงพอ
+            if result["similarity"] < 0.15:
+                continue
                 
-                context_parts.append(f"ตำแหน่ง: {job_title} ({chunk_type})\n{content}")
+            sources.append({
+                "content": result["content"][:150] + "..." if len(result["content"]) > 150 else result["content"],
+                "job_title": result["job_title"],
+                "type": result["type"],
+                "similarity": result["similarity"]
+            })
             
-            # เตรียม context สำหรับ LLM
-            context = "\n\n".join(context_parts) if context_parts else "ไม่พบข้อมูลที่เกี่ยวข้อง"
-            
-        finally:
-            conn.close()
+            context_parts.append(f"ตำแหน่ง: {result['job_title']} ({result['type']})\n{result['content']}")
+        
+        # เตรียม context สำหรับ LLM
+        context = "\n\n".join(context_parts) if context_parts else "ไม่พบข้อมูลที่เกี่ยวข้อง"
         
         # สร้าง prompt สำหรับ LLM
         prompt = f"""
-        คุณเป็นที่ปรึกษาด้านอาชีพ IT ที่ให้คำแนะนำแก่นักศึกษาวิทยาการคอมพิวเตอร์และผู้สนใจงานด้าน IT
+        คุณเป็นที่ปรึกษาด้านอาชีพให้คำแนะนำแก่นักศึกษาวิทยาการคอมพิวเตอร์และผู้สนใจงานด้าน IT
         ตอบคำถามเกี่ยวกับอาชีพและตำแหน่ง เพื่อช่วยพัฒนาทักษะ หรือเตรียมตัวเข้าทำงาน เป็นภาษาไทย
         ใช้ข้อมูลต่อไปนี้เป็นหลักในการตอบ และอ้างอิงชื่อตำแหน่งงานเพื่อให้คำตอบน่าเชื่อถือ
 
+        และตอบแบบฟิลเพื่อนคุยกันปกติ ไม่ต้องทางการมาก เป็นกันเอง มีการยิงมุกบ้าง
+
         กฎสำหรับการตอบ:
         1. ถ้าผู้ใช้พิมพ์ชื่ออาชีพผิด ไม่ต้องบอกว่าผิด ให้เติมคำว่า "หรือ" ตามด้วยชื่อที่ถูกต้อง
-        2. เมื่อกล่าวถึงเงินเดือน ให้เสริมว่า "เงินเดือนอาจแตกต่างกันตามโครงสร้างบริษัท ขนาดบริษัท และภูมิภาค"
+        2. กรณีที่มีการถามถึงเงินเดือน ให้เสริมว่า "เงินเดือนอาจแตกต่างกันตามโครงสร้างบริษัท ขนาดบริษัท และภูมิภาค"
         3. ถ้าผู้ใช้ไม่รู้ว่าตัวเองถนัดอะไร ให้ถามว่า "ช่วยบอกสกิล ภาษาโปรแกรม หรือเครื่องมือที่เคยใช้ 
            โปรเจกต์ที่เคยทำ หรือประเมินทักษะของตัวเองแต่ละด้านจาก 1-5 คะแนนได้ไหม"
         4. ตอบให้กระชับ มีหัวข้อ หรือรายการข้อสั้นๆ เพื่อให้อ่านง่าย
@@ -289,117 +340,72 @@ async def list_jobs(
     """
     ดึงรายการอาชีพตามเงื่อนไข
     """
-    conn = get_db_connection()
-    if not conn:
-        raise HTTPException(status_code=500, detail="ไม่สามารถเชื่อมต่อฐานข้อมูลได้")
-    
     try:
-        cursor = conn.cursor()
+        # โหลด metadata
+        _, metadata = load_faiss_and_metadata()
+        jobs = metadata["job_data"]
         
-        # สร้างคำสั่ง SQL พื้นฐาน
-        sql = "SELECT j.id, j.job_key, j.job_title FROM jobs j"
-        params = []
+        # กรองตามเงื่อนไข
+        filtered_jobs = []
         
-        # เพิ่มเงื่อนไขการกรอง
-        where_clauses = []
+        for job in jobs:
+            # กรองตามชื่อ
+            if title and not any(title.lower() in t.lower() for t in job["titles"]):
+                continue
+                
+            # กรองตามทักษะ
+            if skill and not any(skill.lower() in s.lower() for s in job.get("skills", [])):
+                continue
+                
+            # เพิ่มลงในผลลัพธ์
+            filtered_jobs.append(job)
+            
+            # จำกัดจำนวนผลลัพธ์
+            if len(filtered_jobs) >= limit:
+                break
         
-        if title:
-            where_clauses.append("j.job_title ILIKE %s")
-            params.append(f"%{title}%")
+        # แปลงเป็น JobSummary
+        result = []
+        for job in filtered_jobs:
+            result.append(JobSummary(
+                id=job["id"],
+                title=job["titles"][0] if job["titles"] else job["id"]
+            ))
         
-        if skill:
-            sql += " JOIN job_skills js ON j.id = js.job_id"
-            where_clauses.append("js.skill ILIKE %s")
-            params.append(f"%{skill}%")
-        
-        if where_clauses:
-            sql += " WHERE " + " AND ".join(where_clauses)
-        
-        sql += " ORDER BY j.job_title LIMIT %s"
-        params.append(limit)
-        
-        cursor.execute(sql, params)
-        results = cursor.fetchall()
-        
-        # จัดรูปแบบผลลัพธ์
-        jobs = []
-        for id, job_key, job_title in results:
-            jobs.append(JobSummary(job_key=job_key, job_title=job_title))
-        
-        return jobs
+        return result
     
     except Exception as e:
         logger.error(f"เกิดข้อผิดพลาดในการดึงรายการอาชีพ: {str(e)}")
         raise HTTPException(status_code=500, detail=f"เกิดข้อผิดพลาดในการดึงรายการอาชีพ: {str(e)}")
-    
-    finally:
-        conn.close()
 
-@app.get("/jobs/{job_key}", response_model=JobResponse, tags=["Jobs"])
-async def get_job(job_key: str):
+@app.get("/jobs/{job_id}", response_model=JobResponse, tags=["Jobs"])
+async def get_job(job_id: str):
     """
-    ดึงข้อมูลอาชีพตาม job_key
+    ดึงข้อมูลอาชีพตาม job_id
     """
-    conn = get_db_connection()
-    if not conn:
-        raise HTTPException(status_code=500, detail="ไม่สามารถเชื่อมต่อฐานข้อมูลได้")
-    
     try:
-        cursor = conn.cursor()
+        # โหลด metadata
+        _, metadata = load_faiss_and_metadata()
         
-        # ดึงข้อมูลหลักของอาชีพ
-        cursor.execute('''
-            SELECT id, job_key, job_title, description
-            FROM jobs
-            WHERE job_key = %s
-        ''', (job_key,))
-        
-        job_data = cursor.fetchone()
-        
-        if not job_data:
-            raise HTTPException(status_code=404, detail=f"ไม่พบข้อมูลอาชีพสำหรับ key: {job_key}")
-        
-        job_id, job_key, job_title, description = job_data
-        
-        # ดึงข้อมูลทักษะ
-        cursor.execute('''
-            SELECT skill FROM job_skills
-            WHERE job_id = %s
-        ''', (job_id,))
-        
-        skills = [row[0] for row in cursor.fetchall()]
-        
-        # ดึงข้อมูลความรับผิดชอบ
-        cursor.execute('''
-            SELECT responsibility FROM job_responsibilities
-            WHERE job_id = %s
-        ''', (job_id,))
-        
-        responsibilities = [row[0] for row in cursor.fetchall()]
-        
-        # ดึงข้อมูลเงินเดือน
-        cursor.execute('''
-            SELECT experience_range, salary_range FROM job_salaries
-            WHERE job_id = %s
-        ''', (job_id,))
-        
-        salary_info = [
-            {"experience": row[0], "salary": row[1]}
-            for row in cursor.fetchall()
-        ]
+        # ค้นหาอาชีพจาก job_id
+        job_data = None
+        for job in metadata["job_data"]:
+            if job["id"] == job_id:
+                job_data = job
+                break
+                
+        if job_data is None:
+            raise HTTPException(status_code=404, detail=f"ไม่พบข้อมูลอาชีพสำหรับ ID: {job_id}")
         
         # สร้างและส่งคืนข้อมูลอาชีพ
-        job = JobResponse(
-            id=str(job_id),
-            job_key=job_key,
-            job_title=job_title,
-            description=description,
-            skills=skills,
-            responsibilities=responsibilities,
-            salary_info=salary_info
+        return JobResponse(
+            id=job_data["id"],
+            titles=job_data["titles"],
+            description=job_data["description"],
+            skills=job_data.get("skills", []),
+            responsibilities=job_data.get("responsibilities", []),
+            salary_ranges=job_data.get("salary_ranges", [])
         )
-        
-        return job
     
     except HTTPException:
         raise
@@ -407,9 +413,6 @@ async def get_job(job_key: str):
     except Exception as e:
         logger.error(f"เกิดข้อผิดพลาดในการดึงข้อมูลอาชีพ: {str(e)}")
         raise HTTPException(status_code=500, detail=f"เกิดข้อผิดพลาดในการดึงข้อมูลอาชีพ: {str(e)}")
-    
-    finally:
-        conn.close()
 
 # ฟังก์ชันสร้างคำตอบจาก LLM
 async def generate_from_llm(prompt: str) -> str:
@@ -449,5 +452,20 @@ async def generate_from_llm(prompt: str) -> str:
         return f"ขณะนี้ระบบไม่สามารถสร้างคำตอบได้: {str(e)}"
 
 # รัน API Server
+# รัน API Server
 if __name__ == "__main__":
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    # พิมพ์พาธของไฟล์เพื่อตรวจสอบ
+    print(f"Current working directory: {os.getcwd()}")
+    print(f"FAISS index path: {os.path.abspath(FAISS_INDEX_PATH)}")
+    print(f"Metadata path: {os.path.abspath(METADATA_PATH)}")
+    
+    # ตรวจสอบการมีอยู่ของไฟล์
+    faiss_exists = os.path.exists(FAISS_INDEX_PATH)
+    metadata_exists = os.path.exists(METADATA_PATH)
+    
+    print(f"FAISS index exists: {faiss_exists}")
+    print(f"Metadata exists: {metadata_exists}")
+    
+    # รัน uvicorn โดยใช้ตัวแปร app โดยตรง
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
