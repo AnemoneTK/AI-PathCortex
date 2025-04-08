@@ -1,3 +1,4 @@
+# backend/src/data_processing/prepare_embedding_data.py
 import os
 import json
 import glob
@@ -70,6 +71,9 @@ def prepare_jobs_data(cleaned_jobs_dir, output_file):
     
     # บันทึกข้อมูลที่เตรียมไว้
     try:
+        # สร้างโฟลเดอร์หากยังไม่มี
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
+        
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(all_jobs, f, ensure_ascii=False, indent=2)
         
@@ -79,7 +83,7 @@ def prepare_jobs_data(cleaned_jobs_dir, output_file):
         print(f"{Fore.RED}❌ เกิดข้อผิดพลาดในการบันทึกไฟล์ {output_file}: {str(e)}{Style.RESET_ALL}")
         return False
 
-def prepare_advices_data(advice_file, output_dir):
+def prepare_advices_data(advice_file, output_file):
     """เตรียมข้อมูลคำแนะนำอาชีพสำหรับการสร้าง embeddings"""
     # ตรวจสอบว่าไฟล์มีอยู่จริง
     if not os.path.exists(advice_file):
@@ -88,6 +92,9 @@ def prepare_advices_data(advice_file, output_dir):
     
     # อ่านข้อมูลคำแนะนำ
     try:
+        # สร้างโฟลเดอร์หากยังไม่มี
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
+        
         with open(advice_file, 'r', encoding='utf-8') as f:
             advice_data = json.load(f)
         
@@ -105,15 +112,43 @@ def prepare_advices_data(advice_file, output_dir):
         
         print(f"{Fore.CYAN}📂 พบคำแนะนำทั้งหมด {len(advices)} รายการ{Style.RESET_ALL}")
         
-        # ตรวจสอบว่าโฟลเดอร์มีอยู่จริง
-        os.makedirs(output_dir, exist_ok=True)
+        # เตรียมข้อมูลสำหรับ embedding
+        embedding_advices = []
+        for advice in advices:
+            # ใช้ข้อความที่มีประโยชน์สำหรับทำ embedding
+            text_to_embed = ""
+            
+            # เพิ่มชื่อบทความ
+            if "title" in advice:
+                text_to_embed += f"หัวข้อ: {advice['title']}\n\n"
+            
+            # เพิ่มเนื้อหา
+            if "content" in advice:
+                text_to_embed += f"เนื้อหา: {advice['content'][:1000]}...\n\n"  # จำกัดความยาวเพื่อประสิทธิภาพ
+            
+            # เพิ่มแท็ก
+            if "tags" in advice:
+                text_to_embed += f"แท็ก: {', '.join(advice['tags'])}\n"
+            
+            # เตรียมข้อมูลสำหรับ vector database
+            embedding_item = {
+                "id": advice.get("id", ""),
+                "text": text_to_embed,
+                "metadata": {
+                    "title": advice.get("title", ""),
+                    "source": advice.get("source", ""),
+                    "url": advice.get("url", ""),
+                    "tags": advice.get("tags", [])
+                }
+            }
+            
+            embedding_advices.append(embedding_item)
         
-        # เขียนข้อมูลเดิมลงไฟล์เป็นการสำรอง
-        output_file = os.path.join(output_dir, "career_advices.json")
+        # บันทึกไฟล์ embedding
         with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump({"career_advices": advices}, f, ensure_ascii=False, indent=2)
+            json.dump(embedding_advices, f, ensure_ascii=False, indent=2)
         
-        print(f"{Fore.GREEN}✅ บันทึกข้อมูลคำแนะนำแล้ว: {len(advices)} รายการ -> {output_file}{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}✅ บันทึกข้อมูลคำแนะนำสำหรับสร้าง embeddings แล้ว: {len(embedding_advices)} รายการ -> {output_file}{Style.RESET_ALL}")
         return True
     except Exception as e:
         print(f"{Fore.RED}❌ เกิดข้อผิดพลาดในการประมวลผลข้อมูลคำแนะนำ: {str(e)}{Style.RESET_ALL}")
@@ -130,13 +165,19 @@ def main():
     
     # กำหนดตำแหน่งไฟล์จาก arguments หรือใช้ค่าเริ่มต้น
     project_root = Path(__file__).parents[3]  # ย้อนกลับไป 3 ระดับจากไฟล์ปัจจุบัน
-    processed_data_dir = project_root / "data" / "processed"
-    
-    cleaned_jobs_dir = args.cleaned_jobs_dir if args.cleaned_jobs_dir else processed_data_dir / "cleaned_jobs"
-    embedding_data_file = processed_data_dir / "embedding_data.json"
-    
-    advices_file = args.advices_file if args.advices_file else processed_data_dir / "career_advices" / "career_advices.json"
-    advices_output_dir = processed_data_dir / "career_advices"
+    processed_data_dir = project_root / "backend" / "data"
+
+    # โฟลเดอร์สำหรับเก็บข้อมูล embeddings
+    embedding_dir = processed_data_dir / "embedding"
+    os.makedirs(embedding_dir, exist_ok=True)  # สร้างโฟลเดอร์ถ้ายังไม่มี
+
+    # ตำแหน่งไฟล์นำเข้า
+    cleaned_jobs_dir = args.cleaned_jobs_dir if args.cleaned_jobs_dir else processed_data_dir / "processed" / "cleaned_jobs"
+    advices_file = args.advices_file if args.advices_file else processed_data_dir / "processed" / "career_advices" / "career_advices.json"
+
+    # ตำแหน่งไฟล์ผลลัพธ์
+    embedding_data_file = embedding_dir / "embedding_data.json"
+    advices_output_file = embedding_dir / "career_advices_embeddings.json"  # แก้ไขชื่อไฟล์
     
     print(f"\n{Fore.CYAN}{'='*50}")
     print(f"{Fore.CYAN}= เริ่มต้นการเตรียมข้อมูลสำหรับสร้าง Embeddings ={Style.RESET_ALL}")
@@ -145,7 +186,7 @@ def main():
     print(f"{Fore.CYAN}📂 โฟลเดอร์ข้อมูลอาชีพ: {cleaned_jobs_dir}")
     print(f"{Fore.CYAN}📂 ไฟล์ข้อมูลคำแนะนำ: {advices_file}")
     print(f"{Fore.CYAN}📂 ไฟล์ผลลัพธ์สำหรับข้อมูล embedding: {embedding_data_file}")
-    print(f"{Fore.CYAN}📂 โฟลเดอร์ผลลัพธ์สำหรับข้อมูลคำแนะนำ: {advices_output_dir}{Style.RESET_ALL}\n")
+    print(f"{Fore.CYAN}📂 ไฟล์ผลลัพธ์สำหรับข้อมูลคำแนะนำ: {advices_output_file}{Style.RESET_ALL}\n")
     
     # ตรวจสอบว่าโฟลเดอร์และไฟล์มีอยู่จริง
     if not os.path.exists(cleaned_jobs_dir):
@@ -158,7 +199,7 @@ def main():
     
     # เตรียมข้อมูลคำแนะนำ
     print(f"\n{Fore.CYAN}{'='*20} เตรียมข้อมูลคำแนะนำอาชีพ {'='*20}{Style.RESET_ALL}")
-    advices_success = prepare_advices_data(advices_file, advices_output_dir)
+    advices_success = prepare_advices_data(advices_file, advices_output_file)
     
     # สรุปผล
     print(f"\n{Fore.CYAN}{'='*20} สรุปผล {'='*20}{Style.RESET_ALL}")

@@ -1,3 +1,4 @@
+# backend/src/utils/vector_search.py
 import os
 import json
 import numpy as np
@@ -34,6 +35,21 @@ class VectorSearch:
             vector_db_dir: โฟลเดอร์ของฐานข้อมูล vector
             embedding_model: โมเดลสำหรับสร้าง embeddings (ถ้าไม่ระบุจะใช้การจำลอง vector)
         """
+        # คงเดิม แต่อาจเพิ่มการ import SentenceTransformer
+        try:
+            from sentence_transformers import SentenceTransformer
+            
+            # ถ้าไม่มี embedding_model ให้โหลดโมเดลเริ่มต้น
+            if embedding_model is None:
+                default_model = 'intfloat/multilingual-e5-large'
+                embedding_model = SentenceTransformer(default_model)
+                print(f"{Fore.CYAN}📚 โหลดโมเดล embedding เริ่มต้น: {default_model}{Style.RESET_ALL}")
+        except ImportError:
+            print(f"{Fore.YELLOW}⚠️ ไม่สามารถโหลด SentenceTransformer ได้ จะใช้การจำลอง vector{Style.RESET_ALL}")
+            embedding_model = None
+
+        self.embedding_model = embedding_model
+       
         print(f"{Fore.CYAN}⚙️ กำลังเริ่มต้น VectorSearch...{Style.RESET_ALL}")
         self.vector_db_dir = vector_db_dir
         self.embedding_model = embedding_model

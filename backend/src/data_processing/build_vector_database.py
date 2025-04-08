@@ -13,7 +13,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))  #
 sys.path.append(project_root)
 
 try:
-    from src.utils.vector_creator import VectorCreator
+    from backend.src.utils.vector_creator import VectorCreator
     print(f"{Fore.GREEN}✅ นำเข้าโมดูล VectorCreator สำเร็จ{Style.RESET_ALL}")
 except ImportError as e:
     print(f"{Fore.RED}❌ ไม่สามารถนำเข้าโมดูล VectorCreator: {str(e)}{Style.RESET_ALL}")
@@ -25,7 +25,7 @@ def main():
     parser = argparse.ArgumentParser(description='สร้าง vector database จากข้อมูลที่เตรียมไว้')
     parser.add_argument('--processed-data-dir', type=str, help='โฟลเดอร์ข้อมูลที่ประมวลผลแล้ว')
     parser.add_argument('--vector-db-dir', type=str, help='โฟลเดอร์สำหรับเก็บฐานข้อมูล vector')
-    parser.add_argument('--model', type=str, default='paraphrase-multilingual-MiniLM-L12-v2', 
+    parser.add_argument('--model', type=str, default='intfloat/multilingual-e5-large', 
                         help='ชื่อโมเดล SentenceTransformer ที่ต้องการใช้')
     parser.add_argument('--no-clear', action='store_true', 
                         help='ไม่ล้างฐานข้อมูล vector เดิมก่อนสร้างใหม่')
@@ -33,8 +33,8 @@ def main():
     args = parser.parse_args()
     
     # กำหนดตำแหน่งโฟลเดอร์จาก arguments หรือใช้ค่าเริ่มต้น
-    processed_data_dir = args.processed_data_dir if args.processed_data_dir else os.path.join(project_root, "data", "processed")
-    vector_db_dir = args.vector_db_dir if args.vector_db_dir else os.path.join(project_root, "data", "vector_db")
+    processed_data_dir = args.processed_data_dir if args.processed_data_dir else os.path.join(project_root,"backend", "data", "processed")
+    vector_db_dir = args.vector_db_dir if args.vector_db_dir else os.path.join(project_root,"backend", "data", "vector_db")
     
     print(f"\n{Fore.CYAN}{'='*50}")
     print(f"{Fore.CYAN}= เริ่มต้นการสร้าง Vector Database ={Style.RESET_ALL}")
@@ -74,7 +74,7 @@ def main():
         # ทดสอบการค้นหา
         if results["job_embeddings"]["success"]:
             print(f"\n{Fore.CYAN}{'='*20} ทดสอบการค้นหาอาชีพ {'='*20}{Style.RESET_ALL}")
-            test_queries = ["นักพัฒนาซอฟต์แวร์", "data scientist", "ผู้จัดการโครงการ"]
+            test_queries = ["นักพัฒนาซอฟต์แวร์", "data scientist", "ผู้จัดการโครงการ","รายได้ fullstack","fullstack คืออะไร เงินเดือนเท่าไหร่ และต้องเตรียมตัวยังไง"]
             for query in test_queries:
                 print(f"\n{Fore.CYAN}🔍 ทดสอบค้นหา: \"{query}\"{Style.RESET_ALL}")
                 vector_creator.search_similar_jobs(query, k=3)
