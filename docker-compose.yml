@@ -1,15 +1,35 @@
 services:
-  ollama:
+  backend:
+    build: ./backend
+    container_name: career-ai-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_PATH=/app
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - API_DEBUG=True
+      - EMBEDDING_MODEL=intfloat/e5-small-v2
+      - LLM_MODEL=llama3.1:latest
+      - LLM_API_BASE=http://host.docker.internal:11434
+    volumes:
+      - ./backend/data:/app/data
+      - ./backend/logs:/app/logs
+      - ./backend/uploads:/app/uploads
+      - ./.env:/app/.env
+    depends_on:
+      - llm-service
+
+  llm-service:
     image: ollama/ollama:latest
+    container_name: career-ai-llm
+    restart: unless-stopped
     ports:
       - "11434:11434"
     volumes:
-      - ./ollama_data:/root/.ollama
-    environment:
-      - OLLAMA_HOST=0.0.0.0
-    deploy:
-      resources:
-        reservations:
-          cpus: "2"
-          memory: 4G
-    restart: unless-stopped
+      - ollama-data:/root/.ollama
+    command: serve
+
+volumes:
+  ollama-data:

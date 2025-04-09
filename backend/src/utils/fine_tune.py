@@ -40,11 +40,13 @@ class FineTuneHelper:
         Args:
             output_dir: โฟลเดอร์ที่จะบันทึกไฟล์ข้อมูล fine-tuning (ถ้าไม่ระบุจะใช้ค่าเริ่มต้น)
         """
-        self.output_dir = output_dir or os.path.join(DATA_DIR, "fine_tune")
+        from src.utils.config import FINE_TUNE_DIR, EMBEDDING_DIR
+        
+        self.output_dir = output_dir or FINE_TUNE_DIR
         os.makedirs(self.output_dir, exist_ok=True)
         
         # โฟลเดอร์ข้อมูลอาชีพและคำแนะนำ
-        self.embedding_dir = os.path.join(DATA_DIR, "embedding")
+        self.embedding_dir = EMBEDDING_DIR
         self.job_data_file = os.path.join(self.embedding_dir, "embedding_data.json")
         self.career_advice_file = os.path.join(self.embedding_dir, "career_advices_embeddings.json")
         
@@ -91,13 +93,18 @@ class FineTuneHelper:
         # คำถามพื้นฐานเกี่ยวกับอาชีพ
         job_question_templates = [
             "อาชีพ {job_title} ทำอะไรบ้าง?",
+            "ขอรายละเอียดอาชีพ {job_title}",
+            "ขอรายละในสายงาน {job_title}",
             "{job_title} ต้องมีทักษะอะไรบ้าง?",
             "เงินเดือนของ {job_title} ประมาณเท่าไหร่?",
             "อยากเป็น {job_title} ต้องเรียนอะไร?",
             "หน้าที่ความรับผิดชอบของ {job_title} คืออะไร?",
             "ช่วยแนะนำวิธีเตรียมตัวเพื่อเป็น {job_title}",
             "ความก้าวหน้าในอาชีพของ {job_title} เป็นอย่างไร?",
-            "{job_title} ต่างจาก {other_job} อย่างไร?"
+            "{job_title} ต่างจาก {other_job} อย่างไร?",
+            "จะสมัครงาน {job_title} ต้องเตรียม resume ยังไง",
+            "อยากเป็น {job_title} ต้องมีสกิลอะไรบ้าง",
+            "ฉันเคยทำ {job_title} อยากย้ายไป {other_job} ต้องทำอะไรบ้าง",
         ]
         
         # สร้าง prompts จากข้อมูลอาชีพ
