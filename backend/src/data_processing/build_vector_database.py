@@ -1,3 +1,4 @@
+# backend/src/data_processing/build_vector_database.py
 import os
 import sys
 import argparse
@@ -25,7 +26,7 @@ def main():
     parser = argparse.ArgumentParser(description='สร้าง vector database จากข้อมูลที่เตรียมไว้')
     parser.add_argument('--processed-data-dir', type=str, help='โฟลเดอร์ข้อมูลที่ประมวลผลแล้ว')
     parser.add_argument('--vector-db-dir', type=str, help='โฟลเดอร์สำหรับเก็บฐานข้อมูล vector')
-    parser.add_argument('--model', type=str, default='intfloat/multilingual-e5-large', 
+    parser.add_argument('--model', type=str, default='intfloat/e5-small-v2', 
                         help='ชื่อโมเดล SentenceTransformer ที่ต้องการใช้')
     parser.add_argument('--no-clear', action='store_true', 
                         help='ไม่ล้างฐานข้อมูล vector เดิมก่อนสร้างใหม่')

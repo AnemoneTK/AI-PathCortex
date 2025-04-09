@@ -41,7 +41,7 @@ class VectorSearch:
             
             # ถ้าไม่มี embedding_model ให้โหลดโมเดลเริ่มต้น
             if embedding_model is None:
-                default_model = 'intfloat/multilingual-e5-large'
+                default_model = 'intfloat/e5-small-v2'
                 embedding_model = SentenceTransformer(default_model)
                 print(f"{Fore.CYAN}📚 โหลดโมเดล embedding เริ่มต้น: {default_model}{Style.RESET_ALL}")
         except ImportError:

@@ -1,3 +1,4 @@
+# backend/src/utils/vector_creator.py
 import os
 import json
 import shutil
@@ -44,7 +45,7 @@ class VectorCreator:
         
         # ไฟล์ FAISS index และ metadata
         self.job_index_path = self.job_vector_dir / "faiss_index.bin"
-        self.job_metadata_path = self.job_vector_dir / "job_metadata.json"
+        self.job_metadata_path = self.job_vector_dir / "metadata.json"
         
         self.advice_index_path = self.advice_vector_dir / "faiss_index.bin"
         self.advice_metadata_path = self.advice_vector_dir / "metadata.json"
@@ -680,7 +681,7 @@ if __name__ == "__main__":
     try:
         from sentence_transformers import SentenceTransformer
         print(f"{Fore.CYAN}🔄 กำลังโหลดโมเดล SentenceTransformer...")
-        model = SentenceTransformer('intfloat/multilingual-e5-large')
+        model = SentenceTransformer('intfloat/e5-small-v2')
         print(f"{Fore.GREEN}✅ โหลดโมเดลสำเร็จ")
     except Exception as e:
         print(f"{Fore.YELLOW}⚠️ ไม่สามารถโหลดโมเดลได้: {str(e)}")

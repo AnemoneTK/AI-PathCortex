@@ -77,3 +77,6 @@
 
 **/backend/data_backup
 **/backup
+**/myenv
+**/__pycache__
+**/ollama_data

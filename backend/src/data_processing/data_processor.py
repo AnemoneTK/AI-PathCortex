@@ -11,7 +11,7 @@ class JobDataProcessor:
     """
     คลาสสำหรับประมวลผลข้อมูลอาชีพทั้งโฟลเดอร์: ทำความสะอาดและสร้าง vector embeddings
     """
-    def __init__(self, model_name="paraphrase-multilingual-MiniLM-L12-v2"):
+    def __init__(self, model_name="intfloat/e5-small-v2"):
         """
         เริ่มต้นคลาสด้วย model สำหรับสร้าง embeddings (ใช้ multilingual model สำหรับภาษาไทย)
         """
