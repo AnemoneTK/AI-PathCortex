@@ -24,7 +24,8 @@ async def generate_response(
     max_tokens: int = 1000,
     top_k: int = 40,
     top_p: float = 0.9,
-    timeout: float = 60.0
+    timeout: float = 120.0,
+    use_fine_tuned: Optional[bool] = None  
 ) -> str:
     """
     สร้างคำตอบจาก LLM
@@ -42,6 +43,31 @@ async def generate_response(
         str: คำตอบจาก LLM
     """
     try:
+        if use_fine_tuned is None:
+            # ถ้าไม่ได้ระบุ ให้ใช้ค่าจาก config
+            from src.utils.config import USE_FINE_TUNED, FINE_TUNED_MODEL
+            should_use_fine_tuned = USE_FINE_TUNED and FINE_TUNED_MODEL
+        else:
+            # ถ้าระบุ ให้ใช้ค่าที่ส่งมา
+            should_use_fine_tuned = use_fine_tuned and FINE_TUNED_MODEL
+        
+        # เลือกโมเดลที่จะใช้
+        model = FINE_TUNED_MODEL if should_use_fine_tuned else LLM_MODEL
+        logger.info(f"กำลังใช้โมเดล: {model} ({'fine-tuned' if should_use_fine_tuned else 'base'})")
+        
+        # ปรับ prompt ตามบุคลิก
+        prompt_with_personality = _add_personality_to_prompt(prompt, personality)
+        
+        # สร้าง payload สำหรับ LLM API
+        payload = {
+            "model": model,
+            "prompt": prompt_with_personality,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "top_k": top_k,
+            "top_p": top_p,
+            "stream": False
+        }
         # ปรับ prompt ตามบุคลิก
         prompt_with_personality = _add_personality_to_prompt(prompt, personality)
         
@@ -130,7 +156,8 @@ async def chat_with_job_context(
     job_contexts: List[Dict[str, Any]],
     user_context: Optional[Dict[str, Any]] = None,
     advice_contexts: Optional[List[Dict[str, Any]]] = None,
-    personality: PersonalityType = PersonalityType.FRIENDLY
+    personality: PersonalityType = PersonalityType.FRIENDLY,
+    use_fine_tuned: Optional[bool] = None  
 ) -> str:
     """
     สนทนากับ LLM โดยใช้บริบทของอาชีพและผู้ใช้
@@ -277,7 +304,7 @@ async def chat_with_job_context(
     """
     
     # ส่ง prompt ไปยัง LLM
-    return await generate_response(prompt, personality=personality)
+    return await generate_response(prompt, personality=personality, use_fine_tuned=use_fine_tuned)
 
 # Testing
 if __name__ == "__main__":

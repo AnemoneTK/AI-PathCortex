@@ -47,6 +47,7 @@ async def chat(
     request: ChatRequest,
     background_tasks: BackgroundTasks,
     vector_search: VectorSearch = Depends(get_vector_search),
+    use_fine_tuned: Optional[bool] = Query(None, description="ใช้โมเดล fine-tuned หรือไม่")
 ):
     """
     สนทนากับ AI
@@ -74,13 +75,14 @@ async def chat(
         # ค้นหาคำแนะนำที่เกี่ยวข้อง
         advice_results = vector_search.search_career_advices(request.query, limit=2)
         
-        # สร้างคำตอบจาก LLM
+        # สร้างคำตอบจาก LLM (เพิ่มพารามิเตอร์ use_fine_tuned)
         answer = await chat_with_job_context(
             query=request.query,
             job_contexts=job_results,
             user_context=user_context,
             advice_contexts=advice_results,
-            personality=request.personality
+            personality=request.personality,
+            use_fine_tuned=use_fine_tuned
         )
         
         # สร้างแหล่งข้อมูล
@@ -161,6 +163,7 @@ async def chat_with_personality(
     background_tasks: BackgroundTasks,
     personality: PersonalityType = Query(PersonalityType.FRIENDLY, description="รูปแบบบุคลิกของ AI"),
     vector_search: VectorSearch = Depends(get_vector_search),
+    use_fine_tuned: Optional[bool] = Query(None, description="ใช้โมเดล fine-tuned หรือไม่")
 ):
     """
     สนทนากับ AI โดยระบุบุคลิก
@@ -174,8 +177,9 @@ async def chat_with_personality(
     Returns:
         ChatResponse: คำตอบจาก AI
     """
+    
     # กำหนดบุคลิก
     request.personality = personality
     
     # เรียกใช้ API chat ปกติ
-    return await chat(request, background_tasks, vector_search)
+    return await chat(request, background_tasks, vector_search, use_fine_tuned)

@@ -43,6 +43,7 @@ API_PORT = int(os.getenv("API_PORT", "8000"))
 API_DEBUG = os.getenv("API_DEBUG", "False").lower() in ("true", "1", "t")
 API_KEY = os.getenv("API_KEY", "")
 
+
 # ตั้งค่า Embedding Model
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "intfloat/e5-small-v2")
 # EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-large")
@@ -51,6 +52,10 @@ EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "intfloat/e5-small-v2")
 LLM_MODEL = os.getenv("LLM_MODEL", "llama3.1:latest")
 LLM_API_BASE = os.getenv("LLM_API_BASE", "http://localhost:11434")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
+
+# เพิ่มการตั้งค่าสำหรับ Fine-tuned Model
+FINE_TUNED_MODEL = os.getenv("FINE_TUNED_MODEL", "llama3.1-8b-instruct-fine-tuned")  # ชื่อหรือ path ของโมเดลที่ fine-tune แล้ว
+USE_FINE_TUNED = os.getenv("USE_FINE_TUNED", "False").lower() in ("true", "1", "t")
 
 class PersonalityType(str, Enum):
     """ประเภทบุคลิกของ AI"""
@@ -92,4 +97,6 @@ def get_settings() -> Dict[str, Any]:
         "llm_model": LLM_MODEL,
         "llm_api_base": LLM_API_BASE,
         "llm_api_key": LLM_API_KEY,
+        "fine_tuned_model": FINE_TUNED_MODEL,
+        "use_fine_tuned": USE_FINE_TUNED,
     }

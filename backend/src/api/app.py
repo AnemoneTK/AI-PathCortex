@@ -21,7 +21,7 @@ sys.path.append(project_root)
 from src.utils.config import API_HOST, API_PORT, API_DEBUG
 from src.utils.logger import get_logger
 from src.api.dependencies import verify_api_key
-from src.api.routes import base, user, jobs, chat
+from src.api.routes import base, user, jobs, chat, admin
 
 # ตั้งค่า logger
 logger = get_logger("api.app")
@@ -48,6 +48,7 @@ app.include_router(base.router)
 app.include_router(user.router)
 app.include_router(jobs.router)
 app.include_router(chat.router)
+app.include_router(admin.router)
 
 # จัดการข้อผิดพลาด
 @app.exception_handler(Exception)
