@@ -13,6 +13,8 @@ services:
       - EMBEDDING_MODEL=intfloat/e5-small-v2
       - LLM_MODEL=llama3.1:latest
       - LLM_API_BASE=http://host.docker.internal:11434
+      - FINE_TUNED_MODEL=llama3.1-8b-instruct-fine-tuned
+      - USE_FINE_TUNED=False
     volumes:
       - ./backend/data:/app/data
       - ./backend/logs:/app/logs

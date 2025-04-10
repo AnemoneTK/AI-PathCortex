@@ -72,15 +72,15 @@ async def generate_response(
         prompt_with_personality = _add_personality_to_prompt(prompt, personality)
         
         # สร้าง payload สำหรับ LLM API
-        payload = {
-            "model": LLM_MODEL,
-            "prompt": prompt_with_personality,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            "top_k": top_k,
-            "top_p": top_p,
-            "stream": False
-        }
+        # payload = {
+        #     "model": LLM_MODEL,
+        #     "prompt": prompt_with_personality,
+        #     "temperature": temperature,
+        #     "max_tokens": max_tokens,
+        #     "top_k": top_k,
+        #     "top_p": top_p,
+        #     "stream": False
+        # }
         
         # สร้าง headers
         headers = {}
