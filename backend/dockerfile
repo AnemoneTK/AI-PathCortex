@@ -16,13 +16,11 @@ RUN pip install sentence-transformers
 # คัดลอกโค้ดและข้อมูลทั้งหมด
 COPY . .
 
-RUN echo ls
-
 # สร้างโฟลเดอร์ที่จำเป็น
 RUN mkdir -p /app/data/embedding /app/data/processed /app/data/raw /app/data/vector_db \
     /app/data/fine_tune /app/logs /app/uploads /app/data/users
 
-RUN python src/data_collection/jobsdb_scraper.py
+RUN python -m src.run_data_processing --verbose
 
 # เปิดพอร์ตสำหรับ API
 EXPOSE 8000

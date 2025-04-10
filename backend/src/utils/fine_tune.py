@@ -21,7 +21,8 @@ from src.utils.config import (
     LLM_API_KEY, 
     LLM_MODEL, 
     FINE_TUNED_MODEL, 
-    DATA_DIR
+    DATA_DIR,
+    PersonalityType
 )
 from src.utils.logger import get_logger
 
@@ -56,6 +57,34 @@ class FineTuneHelper:
         
         if not os.path.exists(self.career_advice_file):
             logger.warning(f"ไม่พบไฟล์ข้อมูลคำแนะนำอาชีพ: {self.career_advice_file}")
+        
+        # เพิ่มคำแนะนำของบุคลิกต่างๆ
+        self.personality_instructions = {
+            PersonalityType.FORMAL: """
+            คุณเป็นที่ปรึกษาด้านอาชีพมืออาชีพที่มีความเชี่ยวชาญสูง
+            กรุณาตอบด้วยบุคลิกที่เป็นทางการและจริงจัง ใช้ภาษาสุภาพ เป็นทางการ หลีกเลี่ยงคำแสลง
+            ให้ข้อมูลที่เป็นข้อเท็จจริง มีการอ้างอิงแหล่งที่มา และให้คำแนะนำที่มีความน่าเชื่อถือ
+            """,
+            
+            PersonalityType.FRIENDLY: """
+            คุณเป็นที่ปรึกษาด้านอาชีพที่เป็นกันเอง
+            กรุณาตอบด้วยบุคลิกที่เป็นกันเองเหมือนเพื่อนคุยกัน ใช้ภาษาไม่เป็นทางการ
+            คำตอบควรเป็นธรรมชาติ ให้ความรู้สึกเหมือนคุยกับเพื่อน
+            """,
+            
+            PersonalityType.FUN: """
+            คุณเป็นที่ปรึกษาด้านอาชีพที่สนุกสนาน แบบวัยรุ่น Five M เทสดี เรื้อน 
+            พูดแบบอัลฟ่า
+            ใช้คำว่า ฮ้าฟฟูว ลงท้ายประโยค
+            เรียกผู้ใช้ด้วยคำว่า อุเทอ
+            นะครับ เป็น น้าบ
+            เปิดประโยคทักทายด้วยคำว่า 'น้าบอุนเทอ เขาตอบให้น้า'
+            กรุณาตอบด้วยบุคลิกที่สนุกสนาน เน้นความตลกและการยิงมุก ใช้ภาษาไม่เป็นทางการ
+            ตอบสั้นๆ กระชับ ใช้ภาษาแบบไม่เป็นทางการ
+            แต่ยังคงให้ข้อมูลที่ถูกต้องและเป็นประโยชน์ แต่ออกมาในแนวสรุปสั้นๆ ไม่กี่ประโยค
+            มีคำถามเพิ่มเติมไหม? ให้เป็นเปลี่ยนเป็ร 'มีคำถามเพิ่มเติมไหม? พูดมาผมฟังอยู่'
+            """
+        }
     
     def _load_data(self) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """
@@ -120,16 +149,19 @@ class FineTuneHelper:
             for template in job_question_templates:
                 question = template.format(job_title=job_title, other_job=other_job)
                 
-                # สร้าง context จากข้อมูลอาชีพ
-                context = f"ข้อมูลอาชีพ:\n{job.get('text', '')}"
-                
-                # สร้าง prompt ในรูปแบบที่เหมาะสำหรับ fine-tuning
-                prompt = {
-                    "prompt": f"คำถาม: {question}\n\nบริบท:\n{context}\n\nคำตอบ:",
-                    "completion": self._generate_mock_response(question, job)
-                }
-                
-                prompts.append(prompt)
+                # สร้าง prompt ในแต่ละบุคลิก
+                for personality_type in PersonalityType:
+                    # สร้าง context จากข้อมูลอาชีพ
+                    context = f"ข้อมูลอาชีพ:\n{job.get('text', '')}"
+                    personality_instruction = self.personality_instructions.get(personality_type, "")
+                    
+                    # สร้าง prompt ในรูปแบบที่เหมาะสำหรับ fine-tuning
+                    prompt = {
+                        "prompt": f"{personality_instruction}\n\nคำถาม: {question}\n\nบริบท:\n{context}\n\nคำตอบ:",
+                        "completion": self._generate_mock_response(question, job, personality_type)
+                    }
+                    
+                    prompts.append(prompt)
         
         return prompts
     
@@ -172,39 +204,69 @@ class FineTuneHelper:
                 tag = random.choice(tags)
                 question = template.format(tag=tag)
                 
-                # สร้าง context จากข้อมูลคำแนะนำ
-                context = f"คำแนะนำ:\nหัวข้อ: {title}\n{advice.get('text', '')}"
-                
-                # สร้าง prompt ในรูปแบบที่เหมาะสำหรับ fine-tuning
-                prompt = {
-                    "prompt": f"คำถาม: {question}\n\nบริบท:\n{context}\n\nคำตอบ:",
-                    "completion": self._generate_mock_response(question, advice)
-                }
-                
-                prompts.append(prompt)
+                # สร้าง prompt ในแต่ละบุคลิก
+                for personality_type in PersonalityType:
+                    # สร้าง context จากข้อมูลคำแนะนำ
+                    context = f"คำแนะนำ:\nหัวข้อ: {title}\n{advice.get('text', '')}"
+                    personality_instruction = self.personality_instructions.get(personality_type, "")
+                    
+                    # สร้าง prompt ในรูปแบบที่เหมาะสำหรับ fine-tuning
+                    prompt = {
+                        "prompt": f"{personality_instruction}\n\nคำถาม: {question}\n\nบริบท:\n{context}\n\nคำตอบ:",
+                        "completion": self._generate_mock_response(question, advice, personality_type)
+                    }
+                    
+                    prompts.append(prompt)
         
         return prompts
     
-    def _generate_mock_response(self, question: str, data: Dict[str, Any]) -> str:
+    def _generate_mock_response(self, question: str, data: Dict[str, Any], personality: PersonalityType) -> str:
         """
-        สร้างคำตอบจำลองสำหรับคำถาม (ในกรณีนี้คือตัวอย่างเท่านั้น)
-        ในการใช้งานจริงควรใช้ LLM ที่มีอยู่แล้วสร้างคำตอบคุณภาพสูง
+        สร้างคำตอบจำลองสำหรับคำถามตามบุคลิกที่กำหนด
         
         Args:
             question: คำถาม
             data: ข้อมูลที่ใช้ในการสร้างคำตอบ
+            personality: บุคลิกในการตอบ
             
         Returns:
             คำตอบที่สร้างขึ้น
         """
         # ในการใช้งานจริง ควรเรียกใช้ LLM API เพื่อสร้างคำตอบคุณภาพสูง
-        # โค้ดนี้เป็นเพียงตัวอย่างการสร้างคำตอบอย่างง่าย
-        if "job_title" in data.get("metadata", {}):
-            job_title = data.get("metadata", {}).get("job_title", "")
-            return f"สำหรับตำแหน่ง {job_title}, จากข้อมูลที่มี ฉันสามารถแนะนำว่า...[คำตอบจะถูกสร้างจาก LLM จริง]"
+        # โค้ดนี้เป็นเพียงตัวอย่างการสร้างคำตอบตามบุคลิกที่แตกต่างกัน
+        
+        if personality == PersonalityType.FORMAL:
+            if "job_title" in data.get("metadata", {}):
+                job_title = data.get("metadata", {}).get("job_title", "")
+                return f"สำหรับตำแหน่ง {job_title} ข้าพเจ้าขอให้คำแนะนำดังนี้ จากข้อมูลที่ได้รับ ตำแหน่งนี้มีความสำคัญต่อองค์กรเป็นอย่างมาก เนื่องจาก...[คำตอบจะถูกสร้างจาก LLM จริง]"
+            else:
+                title = data.get("metadata", {}).get("title", "")
+                return f"เกี่ยวกับ {title} ข้าพเจ้าขอเสนอแนะว่า เราควรพิจารณาประเด็นสำคัญดังต่อไปนี้...[คำตอบจะถูกสร้างจาก LLM จริง]"
+                
+        elif personality == PersonalityType.FRIENDLY:
+            if "job_title" in data.get("metadata", {}):
+                job_title = data.get("metadata", {}).get("job_title", "")
+                return f"เกี่ยวกับ {job_title} เลยนะ ฉันคิดว่าเป็นอาชีพที่น่าสนใจมาก ๆ เลยนะ จากข้อมูลที่มี งานนี้ต้องใช้ทักษะหลายด้านเลย...[คำตอบจะถูกสร้างจาก LLM จริง]"
+            else:
+                title = data.get("metadata", {}).get("title", "")
+                return f"เรื่อง {title} นี่ ฉันมีเคล็ดลับดี ๆ มาแนะนำนะ ก่อนอื่นเลยเราต้องเข้าใจก่อนว่า...[คำตอบจะถูกสร้างจาก LLM จริง]"
+                
+        elif personality == PersonalityType.FUN:
+            if "job_title" in data.get("metadata", {}):
+                job_title = data.get("metadata", {}).get("job_title", "")
+                return f"น้าบอุนเทอ เขาตอบให้น้า ตำแหน่ง {job_title} เนี่ย เทสดีมากเลย อุเทอ ต้องมีสกิลหลายอย่างเลยนะน้าบ แต่ไม่ยากเกินไปหรอก ทำได้ฮ้าฟฟูว...[คำตอบจะถูกสร้างจาก LLM จริง] มีคำถามเพิ่มเติมไหม? พูดมาผมฟังอยู่"
+            else:
+                title = data.get("metadata", {}).get("title", "")
+                return f"น้าบอุนเทอ เขาตอบให้น้า เรื่อง {title} เนี่ย เทสดีน้าบ ขอบอกเลยว่า ต้องทำแบบนี้ก่อนเลยฮ้าฟฟูว...[คำตอบจะถูกสร้างจาก LLM จริง] มีคำถามเพิ่มเติมไหม? พูดมาผมฟังอยู่"
+        
         else:
-            title = data.get("metadata", {}).get("title", "")
-            return f"เกี่ยวกับ {title}, ฉันขอแนะนำว่า...[คำตอบจะถูกสร้างจาก LLM จริง]"
+            # กรณีไม่มีบุคลิกที่กำหนด ใช้บุคลิกปกติ
+            if "job_title" in data.get("metadata", {}):
+                job_title = data.get("metadata", {}).get("job_title", "")
+                return f"สำหรับตำแหน่ง {job_title}, จากข้อมูลที่มี ฉันสามารถแนะนำว่า...[คำตอบจะถูกสร้างจาก LLM จริง]"
+            else:
+                title = data.get("metadata", {}).get("title", "")
+                return f"เกี่ยวกับ {title}, ฉันขอแนะนำว่า...[คำตอบจะถูกสร้างจาก LLM จริง]"
     
     def prepare_fine_tune_data(self, num_examples: int = 100) -> str:
         """
@@ -230,7 +292,19 @@ class FineTuneHelper:
         random.shuffle(all_prompts)
         
         # จำกัดจำนวนตัวอย่าง
-        selected_prompts = all_prompts[:num_examples]
+        examples_per_personality = num_examples // len(PersonalityType)
+        selected_prompts = []
+        
+        # กระจายตัวอย่างให้แต่ละบุคลิกมีจำนวนเท่า ๆ กัน
+        for personality in PersonalityType:
+            personality_prompts = [p for p in all_prompts if personality.value in p["prompt"]]
+            selected_prompts.extend(personality_prompts[:examples_per_personality])
+        
+        # เพิ่มตัวอย่างที่เหลือ (ถ้ามี)
+        if len(selected_prompts) < num_examples:
+            remaining = num_examples - len(selected_prompts)
+            remaining_prompts = [p for p in all_prompts if p not in selected_prompts]
+            selected_prompts.extend(remaining_prompts[:remaining])
         
         # บันทึกไฟล์
         timestamp = asyncio.get_event_loop().time()
