@@ -3,20 +3,21 @@
 """
 Chat routes for the Career AI Advisor API.
 
-This module defines the routes for chat interactions.
+This module defines the routes for interacting with the AI.
 """
 
 import os
 import uuid
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, HTTPException, Depends, Query, Path, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, Query, Path, Body, BackgroundTasks
+from pydantic import BaseModel
 
-from src.api.models import ChatRequest, ChatResponse, ChatHistory, ChatHistoryResponse
-from src.utils.config import PersonalityType
-from src.utils.logger import get_logger
-from src.utils.storage import get_user, save_chat_history, get_chat_history
-from src.utils.llm import chat_with_job_context
+from src.utils.llm import chat_with_job_context, chat_with_combined_context
 from src.utils.vector_search import VectorSearch
+from src.utils.config import PersonalityType, VECTOR_DB_DIR
+from src.utils.storage import get_user, save_chat_history
+from src.api.models import ChatHistory, ChatMessage
+from src.utils.logger import get_logger
 
 # ตั้งค่า logger
 logger = get_logger("api.routes.chat")
@@ -28,158 +29,148 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-# ฟังก์ชันสำหรับดึง VectorSearch instance
-def get_vector_search():
-    """
-    ดึง VectorSearch instance
-    
-    Returns:
-        VectorSearch: instance ของ VectorSearch
-    """
-    # นำเข้า vector_db_dir จาก config
-    from src.utils.config import VECTOR_DB_DIR
-    
-    # สร้าง VectorSearch instance
-    return VectorSearch(VECTOR_DB_DIR)
+# สร้าง VectorSearch
+try:
+    vector_search = VectorSearch(vector_db_dir=VECTOR_DB_DIR)
+except Exception as e:
+    logger.error(f"ไม่สามารถสร้าง VectorSearch ได้: {str(e)}")
+    vector_search = None
+
+# คลาสสำหรับรับข้อมูลคำถาม
+class ChatRequest(BaseModel):
+    query: str
+    user_id: Optional[str] = None
+    personality: Optional[PersonalityType] = PersonalityType.FRIENDLY
+    use_combined_search: bool = True
+    use_fine_tuned: bool = False
+
+# คลาสสำหรับส่งคำตอบ
+class ChatResponse(BaseModel):
+    response: str
+    search_results: List[Dict[str, Any]]
+    personality: PersonalityType
+    user_context: Optional[Dict[str, Any]] = None
 
 @router.post("/", response_model=ChatResponse)
-async def chat(
+async def ask_question(
     request: ChatRequest,
-    background_tasks: BackgroundTasks,
-    vector_search: VectorSearch = Depends(get_vector_search),
-    use_fine_tuned: Optional[bool] = Query(None, description="ใช้โมเดล fine-tuned หรือไม่")
+    background_tasks: BackgroundTasks
 ):
     """
-    สนทนากับ AI
+    ถามคำถามและรับคำตอบจาก AI
     
     Args:
-        request: คำขอสนทนา
-        background_tasks: งานที่ทำในพื้นหลัง
-        vector_search: instance ของ VectorSearch
+        request: ข้อมูลคำถาม
         
     Returns:
         ChatResponse: คำตอบจาก AI
     """
     try:
+        # ตรวจสอบ VectorSearch
+        if vector_search is None:
+            raise HTTPException(status_code=500, detail="ระบบค้นหาข้อมูลไม่พร้อมใช้งาน")
+        
+        # ตรวจสอบว่ามีคำถามหรือไม่
+        if not request.query:
+            raise HTTPException(status_code=400, detail="กรุณาระบุคำถาม")
+        
         # ดึงข้อมูลผู้ใช้ (ถ้ามี)
         user_context = None
         if request.user_id:
-            from src.utils.storage import get_user
             user = get_user(request.user_id)
             if user:
                 user_context = user.dict()
         
-        # ค้นหาข้อมูลอาชีพที่เกี่ยวข้อง
-        job_results = vector_search.search_jobs(request.query, limit=3)
+        # ค้นหาข้อมูลที่เกี่ยวข้อง
+        search_results = []
         
-        # ค้นหาคำแนะนำที่เกี่ยวข้อง
-        advice_results = vector_search.search_career_advices(request.query, limit=2)
+        if request.use_combined_search:
+            # ใช้การค้นหาแบบรวม
+            search_results = vector_search.search_combined(request.query, limit=5)
+        else:
+            # ใช้การค้นหาแบบแยกประเภท
+            job_results = vector_search.search_jobs(request.query, limit=3)
+            advice_results = vector_search.search_career_advices(request.query, limit=3)
+            
+            # รวมผลลัพธ์
+            search_results = job_results + advice_results
         
-        # สร้างคำตอบจาก LLM (เพิ่มพารามิเตอร์ use_fine_tuned)
-        answer = await chat_with_job_context(
-            query=request.query,
-            job_contexts=job_results,
-            user_context=user_context,
-            advice_contexts=advice_results,
-            personality=request.personality,
-            use_fine_tuned=use_fine_tuned
-        )
+        # สร้างคำตอบ
+        if request.use_combined_search:
+            response_text = await chat_with_combined_context(
+                request.query,
+                search_results,
+                user_context,
+                request.personality,
+                request.use_fine_tuned
+            )
+        else:
+            response_text = await chat_with_job_context(
+                request.query,
+                job_results,
+                user_context,
+                advice_results,
+                request.personality,
+                request.use_fine_tuned
+            )
         
-        # สร้างแหล่งข้อมูล
-        sources = []
-        for job in job_results:
-            sources.append({
-                "content": job["description"][:150] + "..." if len(job["description"]) > 150 else job["description"],
-                "job_title": job["title"],
-                "type": "job",
-                "similarity": job["similarity_score"]
-            })
+        # บันทึกประวัติการสนทนา
+        chat_id = str(uuid.uuid4())
+        timestamp = datetime.now().isoformat()
         
-        for advice in advice_results:
-            sources.append({
-                "content": advice["title"],
-                "job_title": "",
-                "type": "advice",
-                "similarity": advice["similarity_score"]
-            })
-        
-        # บันทึกประวัติการสนทนา (ในพื้นหลัง)
         chat_history = ChatHistory(
-            id=str(uuid.uuid4()),
+            id=chat_id,
             user_id=request.user_id,
-            query=request.query,
-            answer=answer,
-            personality=request.personality,
-            sources=sources,
-            timestamp=None  # ใช้ค่าเริ่มต้น
+            timestamp=timestamp,
+            messages=[
+                ChatMessage(role="user", content=request.query),
+                ChatMessage(role="assistant", content=response_text)
+            ]
         )
+        
+        # บันทึกประวัติในพื้นหลัง
         background_tasks.add_task(save_chat_history, chat_history)
         
-        return ChatResponse(answer=answer, sources=sources)
-    except Exception as e:
-        logger.error(f"เกิดข้อผิดพลาดในการสนทนา: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"เกิดข้อผิดพลาดในการสนทนา: {str(e)}")
-
-@router.get("/history", response_model=ChatHistoryResponse)
-async def get_chat_history_api(
-    user_id: Optional[str] = Query(None, description="รหัสผู้ใช้"),
-    limit: int = Query(10, description="จำนวนประวัติการสนทนาที่ต้องการ", ge=1, le=100)
-):
-    """
-    ดึงประวัติการสนทนา
-    
-    Args:
-        user_id: รหัสผู้ใช้ (ถ้ามี)
-        limit: จำนวนประวัติการสนทนาที่ต้องการ
-        
-    Returns:
-        ChatHistoryResponse: ประวัติการสนทนา
-    """
-    try:
-        # ตรวจสอบว่าผู้ใช้มีอยู่จริง (ถ้าระบุ user_id)
-        if user_id:
-            from src.utils.storage import get_user
-            user = get_user(user_id)
-            if not user:
-                raise HTTPException(status_code=404, detail=f"ไม่พบผู้ใช้ {user_id}")
-        
-        # ดึงประวัติการสนทนา
-        history = get_chat_history(user_id, limit)
-        
-        return ChatHistoryResponse(
-            user_id=user_id,
-            history=history,
-            count=len(history)
+        # สร้าง response
+        return ChatResponse(
+            response=response_text,
+            search_results=search_results,
+            personality=request.personality,
+            user_context=user_context
         )
-    except HTTPException:
-        raise
+        
     except Exception as e:
-        logger.error(f"เกิดข้อผิดพลาดในการดึงประวัติการสนทนา: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"เกิดข้อผิดพลาดในการดึงประวัติการสนทนา: {str(e)}")
+        logger.error(f"เกิดข้อผิดพลาดในการสร้างคำตอบ: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"เกิดข้อผิดพลาดในการสร้างคำตอบ: {str(e)}")
 
-@router.post("/personality", response_model=ChatResponse)
-async def chat_with_personality(
-    request: ChatRequest,
-    background_tasks: BackgroundTasks,
-    personality: PersonalityType = Query(PersonalityType.FRIENDLY, description="รูปแบบบุคลิกของ AI"),
-    vector_search: VectorSearch = Depends(get_vector_search),
-    use_fine_tuned: Optional[bool] = Query(None, description="ใช้โมเดล fine-tuned หรือไม่")
-):
+@router.get("/personalities", response_model=List[str])
+async def get_personalities():
     """
-    สนทนากับ AI โดยระบุบุคลิก
+    ดึงรายการบุคลิกที่สามารถใช้ได้
+    
+    Returns:
+        List[str]: รายการบุคลิก
+    """
+    return [p.value for p in PersonalityType]
+
+@router.get("/history/{user_id}", response_model=List[ChatHistory])
+async def get_user_chat_history(user_id: str = Path(..., description="รหัสผู้ใช้")):
+    """
+    ดึงประวัติการสนทนาของผู้ใช้
     
     Args:
-        request: คำขอสนทนา
-        background_tasks: งานที่ทำในพื้นหลัง
-        personality: รูปแบบบุคลิกของ AI
-        vector_search: instance ของ VectorSearch
+        user_id: รหัสผู้ใช้
         
     Returns:
-        ChatResponse: คำตอบจาก AI
+        List[ChatHistory]: รายการประวัติการสนทนา
     """
+    from src.utils.storage import get_chat_history
     
-    # กำหนดบุคลิก
-    request.personality = personality
+    # ตรวจสอบว่ามีผู้ใช้หรือไม่
+    user = get_user(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail=f"ไม่พบผู้ใช้ {user_id}")
     
-    # เรียกใช้ API chat ปกติ
-    return await chat(request, background_tasks, vector_search, use_fine_tuned)
+    # ดึงประวัติการสนทนา
+    history = get_chat_history(user_id)
+    return history

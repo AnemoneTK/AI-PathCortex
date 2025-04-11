@@ -70,12 +70,16 @@ ADVICE_VECTOR_DIR = os.path.join(VECTOR_DB_DIR, "career_advice")
 # โฟลเดอร์ผู้ใช้
 USERS_DIR = os.path.join(DATA_DIR, "users")
 
+JOB_VECTOR_DIR = os.path.join(VECTOR_DB_DIR, "job_knowledge")
+ADVICE_VECTOR_DIR = os.path.join(VECTOR_DB_DIR, "career_advice")
+COMBINED_VECTOR_DIR = os.path.join(VECTOR_DB_DIR, "combined_knowledge")
+
 # สร้างโฟลเดอร์ที่จำเป็นทั้งหมด
 dirs_to_create = [
     DATA_DIR, LOGS_DIR, UPLOADS_DIR, EMBEDDING_DIR, PROCESSED_DATA_DIR, 
     RAW_DATA_DIR, VECTOR_DB_DIR, FINE_TUNE_DIR, CLEANED_JOBS_DIR, 
     NORMALIZED_JOBS_DIR, CAREER_ADVICES_DIR, JOB_VECTOR_DIR, 
-    ADVICE_VECTOR_DIR, USERS_DIR
+    ADVICE_VECTOR_DIR, COMBINED_VECTOR_DIR, USERS_DIR 
 ]
 
 for dir_path in dirs_to_create:
@@ -133,6 +137,7 @@ def get_settings() -> Dict[str, Any]:
         "vector_db_dir": VECTOR_DB_DIR,
         "job_vector_dir": JOB_VECTOR_DIR,
         "advice_vector_dir": ADVICE_VECTOR_DIR,
+        "combined_vector_dir": COMBINED_VECTOR_DIR,
         "users_dir": USERS_DIR,
         "uploads_dir": UPLOADS_DIR,
         "logs_dir": LOGS_DIR,

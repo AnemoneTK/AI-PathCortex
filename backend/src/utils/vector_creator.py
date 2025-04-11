@@ -730,3 +730,331 @@ if __name__ == "__main__":
         
     except Exception as e:
         print(f"{Fore.RED}❌ เกิดข้อผิดพลาดในการทดสอบ: {str(e)}")
+
+
+    def create_combined_embeddings(self) -> Dict[str, Any]:
+        """
+        สร้าง embeddings แบบรวมข้อมูลอาชีพและคำแนะนำเข้าด้วยกัน
+        
+        Returns:
+            ผลลัพธ์ของการสร้าง embeddings
+        """
+        result = {
+            "success": False,
+            "vectors_count": 0,
+            "error": None
+        }
+        
+        try:
+            # โหลดข้อมูลอาชีพ
+            job_data = self._load_job_data()
+            
+            # โหลดข้อมูลคำแนะนำ
+            advice_data = self._load_career_advice_data()
+            
+            # โหลดข้อมูลผู้ใช้ (จะเพิ่มในส่วนนี้)
+            user_data = self._load_user_data()
+            
+            if not job_data and not advice_data:
+                result["error"] = "ไม่พบข้อมูลอาชีพและคำแนะนำ"
+                return result
+            
+            print(f"{Fore.CYAN}🔄 กำลังสร้าง embeddings แบบรวมข้อมูล (อาชีพ {len(job_data)} รายการ, คำแนะนำ {len(advice_data)} รายการ, ผู้ใช้ {len(user_data)} รายการ)...{Style.RESET_ALL}")
+            
+            # เตรียมข้อมูลสำหรับสร้าง embeddings
+            combined_texts = []
+            combined_ids = []
+            combined_data = []
+            combined_types = []  # เพิ่มข้อมูลประเภท ("job", "advice", "user")
+            
+            # เพิ่มข้อมูลอาชีพ
+            for job in job_data:
+                if "id" not in job:
+                    continue
+                    
+                job_text = self._prepare_text_for_embedding(job)
+                job_id = f"job_{job['id']}"
+                
+                combined_texts.append(job_text)
+                combined_ids.append(job_id)
+                combined_data.append(job)
+                combined_types.append("job")
+            
+            # เพิ่มข้อมูลคำแนะนำ
+            for advice in advice_data:
+                if "id" not in advice:
+                    continue
+                    
+                advice_text = self._prepare_advice_text_for_embedding(advice)
+                advice_id = f"advice_{advice['id']}"
+                
+                combined_texts.append(advice_text)
+                combined_ids.append(advice_id)
+                combined_data.append(advice)
+                combined_types.append("advice")
+            
+            # เพิ่มข้อมูลผู้ใช้
+            for user in user_data:
+                if "id" not in user:
+                    continue
+                    
+                user_text = self._prepare_user_text_for_embedding(user)
+                user_id = f"user_{user['id']}"
+                
+                combined_texts.append(user_text)
+                combined_ids.append(user_id)
+                combined_data.append(user)
+                combined_types.append("user")
+            
+            # ตรวจสอบข้อมูล
+            if not combined_texts:
+                result["error"] = "ไม่สามารถเตรียมข้อความสำหรับสร้าง embeddings ได้"
+                return result
+            
+            # สร้าง embeddings
+            print(f"{Fore.CYAN}🧠 กำลังสร้าง embeddings จำนวน {len(combined_texts)} รายการ...{Style.RESET_ALL}")
+            
+            if self.embedding_model:
+                # ใช้โมเดลจริง
+                embeddings = self.embedding_model.encode(combined_texts, show_progress_bar=True)
+            else:
+                # ใช้การจำลอง
+                print(f"{Fore.YELLOW}⚠️ ไม่พบโมเดล embedding จะใช้การจำลอง{Style.RESET_ALL}")
+                embeddings = np.array([self._get_embedding(text) for text in combined_texts])
+            
+            # สร้าง FAISS index
+            print(f"{Fore.CYAN}📊 กำลังสร้าง FAISS index...{Style.RESET_ALL}")
+            
+            dimension = embeddings.shape[1]
+            index = faiss.IndexFlatL2(dimension)
+            index.add(embeddings.astype(np.float32))
+            
+            # สร้าง mapping ระหว่าง id กับ index
+            combined_ids_to_index = {}
+            for i, item_id in enumerate(combined_ids):
+                combined_ids_to_index[item_id] = i
+            
+            # สร้างโฟลเดอร์สำหรับเก็บข้อมูลรวม
+            combined_vector_dir = self.vector_db_dir / "combined_knowledge"
+            combined_vector_dir.mkdir(parents=True, exist_ok=True)
+            
+            # บันทึก FAISS index
+            combined_index_path = combined_vector_dir / "faiss_index.bin"
+            print(f"{Fore.CYAN}💾 กำลังบันทึก FAISS index ไปที่ {combined_index_path}...{Style.RESET_ALL}")
+            faiss.write_index(index, str(combined_index_path))
+            
+            # บันทึก metadata
+            combined_metadata_path = combined_vector_dir / "metadata.json"
+            print(f"{Fore.CYAN}💾 กำลังบันทึก metadata ไปที่ {combined_metadata_path}...{Style.RESET_ALL}")
+            metadata = {
+                "item_ids": combined_ids,
+                "item_types": combined_types,
+                "item_ids_to_index": combined_ids_to_index,
+                "item_data": []
+            }
+            
+            # ปรับข้อมูลให้มีขนาดเล็กลงสำหรับเก็บใน metadata
+            for i, item in enumerate(combined_data):
+                item_type = combined_types[i]
+                simplified_item = {"id": combined_ids[i], "type": item_type}
+                
+                if item_type == "job":
+                    simplified_item.update({
+                        "title": item.get("titles", [""])[0] if isinstance(item.get("titles"), list) else "",
+                        "description": item.get("description", "")[:300] + "..." if len(item.get("description", "")) > 300 else item.get("description", ""),
+                        "responsibilities": item.get("responsibilities", [])[:3],
+                        "skills": item.get("skills", [])[:5],
+                        "salary_ranges": item.get("salary_ranges", [])
+                    })
+                elif item_type == "advice":
+                    simplified_item.update({
+                        "title": item.get("title", ""),
+                        "text_preview": item.get("text", "")[:300] + "..." if len(item.get("text", "")) > 300 else item.get("text", ""),
+                        "tags": item.get("tags", []),
+                        "source": item.get("source", ""),
+                        "url": item.get("url", "")
+                    })
+                elif item_type == "user":
+                    simplified_item.update({
+                        "name": item.get("name", ""),
+                        "institution": item.get("institution", ""),
+                        "education_status": item.get("education_status", ""),
+                        "skills": [skill.get("name") for skill in item.get("skills", [])][:5],
+                        "programming_languages": item.get("programming_languages", [])[:5]
+                    })
+                
+                metadata["item_data"].append(simplified_item)
+            
+            with open(combined_metadata_path, 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, ensure_ascii=False, indent=2)
+            
+            print(f"{Fore.GREEN}✅ สร้าง embeddings แบบรวมข้อมูลสำเร็จ: {len(combined_ids)} vectors{Style.RESET_ALL}")
+            
+            result["success"] = True
+            result["vectors_count"] = len(combined_ids)
+            
+            return result
+            
+        except Exception as e:
+            print(f"{Fore.RED}❌ เกิดข้อผิดพลาดในการสร้าง embeddings แบบรวมข้อมูล: {str(e)}{Style.RESET_ALL}")
+            result["error"] = str(e)
+            return result
+
+    def _prepare_user_text_for_embedding(self, user: Dict[str, Any]) -> str:
+        """
+        เตรียมข้อความจากข้อมูลผู้ใช้สำหรับสร้าง embedding
+        
+        Args:
+            user: ข้อมูลผู้ใช้
+            
+        Returns:
+            ข้อความที่พร้อมสำหรับสร้าง embedding
+        """
+        text_parts = []
+        
+        # เพิ่มชื่อผู้ใช้
+        if "name" in user and user["name"]:
+            text_parts.append(f"ชื่อ: {user['name']}")
+        
+        # เพิ่มสถาบันการศึกษา
+        if "institution" in user and user["institution"]:
+            text_parts.append(f"สถาบันการศึกษา: {user['institution']}")
+        
+        # เพิ่มสถานะการศึกษา
+        if "education_status" in user and user["education_status"]:
+            status_mapping = {
+                "student": "กำลังศึกษา",
+                "graduate": "จบการศึกษา",
+                "working": "ทำงานแล้ว",
+                "other": "อื่นๆ"
+            }
+            status = status_mapping.get(user["education_status"], user["education_status"])
+            text_parts.append(f"สถานะ: {status}")
+        
+        # เพิ่มชั้นปี
+        if "year" in user and user["year"]:
+            text_parts.append(f"ชั้นปี: {user['year']}")
+        
+        # เพิ่มทักษะ
+        if "skills" in user and user["skills"]:
+            skills_text = []
+            for skill in user["skills"]:
+                skill_name = skill.get("name", "")
+                skill_level = skill.get("proficiency", 0)
+                if skill_name:
+                    skills_text.append(f"{skill_name} (ระดับ {skill_level}/5)")
+            
+            if skills_text:
+                text_parts.append(f"ทักษะ: {', '.join(skills_text)}")
+        
+        # เพิ่มภาษาโปรแกรม
+        if "programming_languages" in user and user["programming_languages"]:
+            text_parts.append(f"ภาษาโปรแกรม: {', '.join(user['programming_languages'])}")
+        
+        # เพิ่มเครื่องมือ
+        if "tools" in user and user["tools"]:
+            text_parts.append(f"เครื่องมือ: {', '.join(user['tools'])}")
+        
+        # เพิ่มโปรเจกต์
+        if "projects" in user and user["projects"]:
+            projects_text = []
+            for project in user["projects"]:
+                project_name = project.get("name", "")
+                project_desc = project.get("description", "")
+                project_tech = project.get("technologies", [])
+                
+                if project_name:
+                    project_text = project_name
+                    if project_desc:
+                        project_text += f" - {project_desc}"
+                    if project_tech:
+                        project_text += f" (เทคโนโลยี: {', '.join(project_tech)})"
+                    projects_text.append(project_text)
+            
+            if projects_text:
+                text_parts.append(f"โปรเจกต์: {'; '.join(projects_text)}")
+        
+        # เพิ่มประสบการณ์ทำงาน
+        if "work_experiences" in user and user["work_experiences"]:
+            work_text = []
+            for work in user["work_experiences"]:
+                work_title = work.get("title", "")
+                work_company = work.get("company", "")
+                work_start = work.get("start_date", "")
+                work_end = work.get("end_date", "")
+                work_desc = work.get("description", "")
+                
+                if work_title and work_company:
+                    exp_text = f"{work_title} ที่ {work_company}"
+                    if work_start:
+                        exp_text += f" ({work_start}"
+                        if work_end:
+                            exp_text += f" ถึง {work_end}"
+                        exp_text += ")"
+                    if work_desc:
+                        exp_text += f" - {work_desc}"
+                    work_text.append(exp_text)
+            
+            if work_text:
+                text_parts.append(f"ประสบการณ์: {'; '.join(work_text)}")
+        
+        # รวมทุกส่วนเข้าด้วยกัน
+        return " ".join(text_parts)
+
+    def _load_user_data(self) -> List[Dict[str, Any]]:
+        """
+        โหลดข้อมูลผู้ใช้ทั้งหมดจากไฟล์ users.json
+        
+        Returns:
+            List ของข้อมูลผู้ใช้
+        """
+        try:
+            from src.utils.config import USERS_DIR
+            users_file = os.path.join(USERS_DIR, "users.json")
+            
+            if os.path.exists(users_file):
+                with open(users_file, 'r', encoding='utf-8') as f:
+                    users_data = json.load(f)
+                    
+                    # ตรวจสอบโครงสร้างข้อมูล
+                    if isinstance(users_data, list):
+                        print(f"{Fore.GREEN}✅ โหลดข้อมูลผู้ใช้สำเร็จ: {len(users_data)} รายการ{Style.RESET_ALL}")
+                        return users_data
+                    else:
+                        print(f"{Fore.YELLOW}⚠️ รูปแบบข้อมูลผู้ใช้ไม่ถูกต้อง ควรเป็นรายการ (List){Style.RESET_ALL}")
+                        return []
+            else:
+                print(f"{Fore.YELLOW}⚠️ ไม่พบไฟล์ข้อมูลผู้ใช้: {users_file}{Style.RESET_ALL}")
+                return []
+        except Exception as e:
+            print(f"{Fore.RED}❌ เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ใช้: {str(e)}{Style.RESET_ALL}")
+            return []
+
+    def create_all_embeddings(self) -> Dict[str, Any]:
+        """
+        สร้าง embeddings ทั้งหมด ทั้งข้อมูลอาชีพและคำแนะนำอาชีพ
+        
+        Returns:
+            ผลลัพธ์ของการสร้าง embeddings
+        """
+        print(f"{Fore.CYAN}{'='*60}")
+        print(f"{Fore.CYAN}= เริ่มต้นการสร้าง Vector Database ทั้งหมด")
+        print(f"{Fore.CYAN}{'='*60}")
+        
+        # สร้าง embeddings สำหรับข้อมูลอาชีพ
+        print(f"\n{Fore.CYAN}{'='*20} สร้าง embeddings สำหรับข้อมูลอาชีพ {'='*20}")
+        job_result = self.create_job_embeddings()
+        
+        # สร้าง embeddings สำหรับข้อมูลคำแนะนำอาชีพ
+        print(f"\n{Fore.CYAN}{'='*20} สร้าง embeddings สำหรับข้อมูลคำแนะนำอาชีพ {'='*20}")
+        advice_result = self.create_advice_embeddings()
+        
+        # สร้าง embeddings แบบรวมข้อมูล
+        print(f"\n{Fore.CYAN}{'='*20} สร้าง embeddings แบบรวมข้อมูล {'='*20}")
+        combined_result = self.create_combined_embeddings()
+        
+        return {
+            "job_embeddings": job_result,
+            "advice_embeddings": advice_result,
+            "combined_embeddings": combined_result
+        }

@@ -65,6 +65,7 @@ def setup_directories(base_dir):
         os.path.join(base_dir, "data", "vector_db"),
         os.path.join(base_dir, "data", "vector_db", "job_knowledge"),
         os.path.join(base_dir, "data", "vector_db", "career_advice"),
+        os.path.join(base_dir, "data", "vector_db", "combined_knowledge"),
         os.path.join(base_dir, "data", "users"),
         os.path.join(base_dir, "uploads")
     ]
@@ -196,21 +197,38 @@ def create_vector_database(args):
         # สร้าง embeddings ทั้งหมด
         results = vector_creator.create_all_embeddings()
         
-        if results["job_embeddings"]["success"] and results["advice_embeddings"]["success"]:
+        # ประเมินผลการสร้าง embeddings
+        all_success = (
+            results["job_embeddings"]["success"] and 
+            results["advice_embeddings"]["success"] and 
+            results["combined_embeddings"]["success"]
+        )
+        
+        if all_success:
             print(f"{Fore.GREEN}✓ สร้าง Vector Database เรียบร้อยแล้ว")
             print(f"{Fore.GREEN}  - ข้อมูลอาชีพ: {results['job_embeddings']['vectors_count']} vectors")
             print(f"{Fore.GREEN}  - ข้อมูลคำแนะนำอาชีพ: {results['advice_embeddings']['vectors_count']} vectors")
+            print(f"{Fore.GREEN}  - ข้อมูลรวม: {results['combined_embeddings']['vectors_count']} vectors")
         else:
             print(f"{Fore.YELLOW}⚠️ สร้าง Vector Database เสร็จสิ้นแต่มีบางส่วนไม่สำเร็จ")
             if not results["job_embeddings"]["success"]:
                 print(f"{Fore.RED}  - ข้อมูลอาชีพ: ไม่สำเร็จ - {results['job_embeddings'].get('error', 'ไม่ทราบสาเหตุ')}")
+            else:
+                print(f"{Fore.GREEN}  - ข้อมูลอาชีพ: {results['job_embeddings']['vectors_count']} vectors")
+                
             if not results["advice_embeddings"]["success"]:
                 print(f"{Fore.RED}  - ข้อมูลคำแนะนำอาชีพ: ไม่สำเร็จ - {results['advice_embeddings'].get('error', 'ไม่ทราบสาเหตุ')}")
+            else:
+                print(f"{Fore.GREEN}  - ข้อมูลคำแนะนำอาชีพ: {results['advice_embeddings']['vectors_count']} vectors")
+                
+            if not results["combined_embeddings"]["success"]:
+                print(f"{Fore.RED}  - ข้อมูลรวม: ไม่สำเร็จ - {results['combined_embeddings'].get('error', 'ไม่ทราบสาเหตุ')}")
+            else:
+                print(f"{Fore.GREEN}  - ข้อมูลรวม: {results['combined_embeddings']['vectors_count']} vectors")
         
     except Exception as e:
         print(f"{Fore.RED}❌ เกิดข้อผิดพลาดในการสร้าง Vector Database: {str(e)}")
         logger.error(f"เกิดข้อผิดพลาดในการสร้าง Vector Database: {str(e)}")
-        # ไม่ต้อง exit เพื่อให้ทำงานขั้นตอนถัดไปได้
 
 def print_summary(args, start_time):
     """แสดงสรุปผลการทำงาน"""

@@ -56,6 +56,19 @@ class VectorSearch:
             "experience", "pros", "cons", "career path"
         ])
         
+        # คำที่เกี่ยวข้องกับ resume และการสมัครงาน
+        self.resume_keywords = set([
+            "resume", "เรซูเม่", "เรซูเม", "cv", "ประวัติ", "สมัครงาน", "สัมภาษณ์",
+            "interview", "application", "portfolio", "พอร์ตโฟลิโอ", "job hunt",
+            "career", "อาชีพ", "การเขียน", "writing", "template", "แม่แบบ", "ตัวอย่าง"
+        ])
+        
+        # คำที่เกี่ยวกับผู้ใช้หรือการค้นหาผู้ใช้
+        self.user_keywords = set([
+            "user", "ผู้ใช้", "profile", "โปรไฟล์", "นักศึกษา", "student", 
+            "จบใหม่", "freshly graduated", "ประวัติส่วนตัว", "ข้อมูลส่วนตัว"
+        ])
+        
         # คำที่อาจสะกดผิด และคำที่ถูกต้อง
         self.common_misspellings = {
             "badkend": "backend",
@@ -68,7 +81,11 @@ class VectorSearch:
             "เดเวลอปเป้อ": "developer",
             "เดเวลอปเปอร์": "developer",
             "โปรเเกรมเมอ": "programmer",
-            "โปรแกรมเมอ": "programmer"
+            "โปรแกรมเมอ": "programmer",
+            "เรซูเม": "resume",
+            "เรซูเม่": "resume",
+            "เรซูม่": "resume",
+            "เร้ซูเม่": "resume"
         }
         
         try:
@@ -84,7 +101,7 @@ class VectorSearch:
             embedding_model = None
 
         self.embedding_model = embedding_model
-       
+    
         print(f"{Fore.CYAN}⚙️ กำลังเริ่มต้น VectorSearch...{Style.RESET_ALL}")
         self.vector_db_dir = vector_db_dir
         self.embedding_model = embedding_model
@@ -92,6 +109,7 @@ class VectorSearch:
         # โฟลเดอร์สำหรับแต่ละประเภทข้อมูล
         self.job_knowledge_dir = os.path.join(vector_db_dir, "job_knowledge")
         self.career_advice_dir = os.path.join(vector_db_dir, "career_advice")
+        self.combined_knowledge_dir = os.path.join(vector_db_dir, "combined_knowledge")
         
         # ไฟล์ FAISS index และ metadata
         self.job_index_file = os.path.join(self.job_knowledge_dir, "faiss_index.bin")
@@ -100,15 +118,21 @@ class VectorSearch:
         self.advice_index_file = os.path.join(self.career_advice_dir, "faiss_index.bin")
         self.advice_metadata_file = os.path.join(self.career_advice_dir, "metadata.json")
         
+        self.combined_index_file = os.path.join(self.combined_knowledge_dir, "faiss_index.bin")
+        self.combined_metadata_file = os.path.join(self.combined_knowledge_dir, "metadata.json")
+        
         print(f"{Fore.CYAN}📂 โฟลเดอร์ฐานข้อมูล vector: {vector_db_dir}")
         print(f"{Fore.CYAN}📄 ไฟล์ job index: {self.job_index_file}")
         print(f"{Fore.CYAN}📄 ไฟล์ job metadata: {self.job_metadata_file}")
         print(f"{Fore.CYAN}📄 ไฟล์ advice index: {self.advice_index_file}")
-        print(f"{Fore.CYAN}📄 ไฟล์ advice metadata: {self.advice_metadata_file}{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}📄 ไฟล์ advice metadata: {self.advice_metadata_file}")
+        print(f"{Fore.CYAN}📄 ไฟล์ combined index: {self.combined_index_file}")
+        print(f"{Fore.CYAN}📄 ไฟล์ combined metadata: {self.combined_metadata_file}{Style.RESET_ALL}")
         
         # โหลด metadata
         self.job_metadata = self._load_metadata(self.job_metadata_file)
         self.advice_metadata = self._load_metadata(self.advice_metadata_file)
+        self.combined_metadata = self._load_metadata(self.combined_metadata_file)
         
         # ดึงข้อมูลที่จัดเก็บไว้
         self.processed_data_dir = os.path.join(project_root, "data", "processed")
@@ -124,16 +148,18 @@ class VectorSearch:
         self.jobs_data = self._load_jobs_data()
         
         # ถ้าไม่มีข้อมูลเลย ให้โหลดจาก embedding_data.json แทน
-        if len(self.job_metadata) == 0 and len(self.advice_metadata) == 0:
+        if len(self.job_metadata) == 0 and len(self.advice_metadata) == 0 and len(self.combined_metadata) == 0:
             print(f"{Fore.YELLOW}⚠️ ไม่พบข้อมูล metadata จะลองโหลดจาก embedding_data.json แทน{Style.RESET_ALL}")
             self._load_fallback_metadata()
         
         if len(self.job_metadata) > 0 and len(self.advice_metadata) > 0:
             print(f"{Fore.GREEN}✅ VectorSearch เริ่มต้นสำเร็จ: {len(self.job_metadata)} job metadata, {len(self.advice_metadata)} advice metadata{Style.RESET_ALL}")
+            if len(self.combined_metadata) > 0:
+                print(f"{Fore.GREEN}✅ พบฐานข้อมูลรวม: {len(self.combined_metadata)} combined metadata{Style.RESET_ALL}")
         else:
             print(f"{Fore.YELLOW}⚠️ VectorSearch เริ่มต้นสำเร็จ แต่อาจไม่มีข้อมูล: {len(self.job_metadata)} job metadata, {len(self.advice_metadata)} advice metadata{Style.RESET_ALL}")
         
-        logger.info(f"VectorSearch เริ่มต้นสำเร็จ: {len(self.job_metadata)} job metadata, {len(self.advice_metadata)} advice metadata")
+        logger.info(f"VectorSearch เริ่มต้นสำเร็จ: {len(self.job_metadata)} job metadata, {len(self.advice_metadata)} advice metadata, {len(self.combined_metadata)} combined metadata")
     
     def _load_fallback_metadata(self):
         """โหลดข้อมูล metadata จากไฟล์ fallback (embedding_data.json)"""
@@ -736,3 +762,305 @@ class VectorSearch:
             if item.get("id") == advice_id:
                 return item
         return None
+    
+    def search_combined(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """
+        ค้นหาข้อมูลแบบรวมทั้งอาชีพ คำแนะนำ และข้อมูลผู้ใช้
+        
+        Args:
+            query: คำค้นหา
+            limit: จำนวนผลลัพธ์ที่ต้องการ
+                
+        Returns:
+            รายการผลลัพธ์การค้นหาที่เกี่ยวข้อง
+        """
+        print(f"{Fore.CYAN}🔍 กำลังค้นหาข้อมูลแบบรวมสำหรับ: \"{query}\"{Style.RESET_ALL}")
+        logger.info(f"กำลังค้นหาข้อมูลแบบรวมสำหรับ: {query}")
+        
+        # ปรับปรุงคำค้นหาและแยกคำสำคัญ
+        corrected_query, keywords = self._normalize_query(query)
+        
+        # ระบุประเภทคำถาม (ปรับการลำดับความสำคัญของประเภทข้อมูล)
+        query_type = self._identify_query_type(query, keywords)
+        
+        if corrected_query != query:
+            print(f"{Fore.YELLOW}ℹ️ คำค้นหาที่ปรับปรุง: \"{corrected_query}\"{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}ℹ️ คำสำคัญที่พบ: {', '.join(keywords)}{Style.RESET_ALL}")
+            logger.info(f"คำค้นหาที่ปรับปรุง: \"{corrected_query}\", คำสำคัญที่พบ: {', '.join(keywords)}")
+        
+        print(f"{Fore.CYAN}🔍 ประเภทคำถาม: {query_type}{Style.RESET_ALL}")
+        
+        # ตรวจสอบว่า index แบบรวมมีอยู่จริง
+        if not os.path.exists(self.combined_index_file) or not os.path.exists(self.combined_metadata_file):
+            warning_msg = "ไม่พบไฟล์ FAISS index หรือ metadata สำหรับข้อมูลแบบรวม จะใช้การค้นหาแยกประเภทแทน"
+            logger.warning(warning_msg)
+            print(f"{Fore.YELLOW}⚠️ {warning_msg}{Style.RESET_ALL}")
+            
+            # ถ้าเป็นคำถามเกี่ยวกับผู้ใช้
+            if query_type == "user":
+                # ค้นหาผู้ใช้เป็นหลัก
+                users = self._fallback_search_users(corrected_query, keywords, limit)
+                return users
+            
+            # ถ้าเป็นคำถามเกี่ยวกับ resume หรือการสมัครงาน
+            elif query_type == "resume":
+                # ค้นหาคำแนะนำเป็นหลัก
+                advices = self.search_career_advices(query, limit)
+                return advices
+            
+            # ถ้าเป็นคำถามเกี่ยวกับอาชีพ
+            else:
+                # ค้นหาอาชีพเป็นหลัก
+                jobs = self.search_jobs(query, limit)
+                return jobs
+        
+        try:
+            print(f"{Fore.CYAN}⏳ กำลังโหลด FAISS index...{Style.RESET_ALL}")
+            # โหลด FAISS index แบบรวม
+            index = faiss.read_index(self.combined_index_file)
+            
+            print(f"{Fore.CYAN}⏳ กำลังสร้าง embedding สำหรับคำค้นหา...{Style.RESET_ALL}")
+            
+            # สร้าง embedding สำหรับคำค้นหา
+            try:
+                if self.embedding_model is None:
+                    # จำลองการสร้าง embedding
+                    print(f"{Fore.YELLOW}ℹ️ ไม่พบโมเดล embedding จะใช้การจำลอง vector แทน{Style.RESET_ALL}")
+                    logger.warning("ไม่พบโมเดล embedding จะใช้การจำลอง vector แทน")
+                    
+                    # สร้าง embedding จากคำสำคัญแทนที่จะใช้คำค้นหาเต็ม
+                    query_embedding = self._create_mock_embedding(" ".join(keywords), dimension=index.d)
+                else:
+                    # ใช้โมเดลที่กำหนด
+                    query_embedding = self.embedding_model.encode([corrected_query])[0]
+                    # Normalize vector
+                    query_embedding = query_embedding / np.linalg.norm(query_embedding)
+                
+                print(f"{Fore.CYAN}🔎 กำลังค้นหาใน vector database...{Style.RESET_ALL}")
+                
+                # ค้นหาใน FAISS index
+                query_embedding = np.array([query_embedding]).astype(np.float32)
+                distances, indices = index.search(query_embedding, limit * 2)  # ค้นหาจำนวนมากกว่า limit เพื่อกรองตามประเภท
+                
+                # แปลงผลลัพธ์
+                results = []
+                
+                # ปรับการจัดอันดับผลลัพธ์ตามประเภทคำถาม
+                type_weights = {
+                    "job": 1.0 if query_type == "job" else 0.6,
+                    "advice": 1.0 if query_type == "resume" else 0.7,
+                    "user": 1.0 if query_type == "user" else 0.5
+                }
+                
+                # โหลด metadata จาก combined_metadata
+                item_types = self.combined_metadata.get("item_types", [])
+                item_data = self.combined_metadata.get("item_data", [])
+                
+                processed_results = []
+                
+                for i, idx in enumerate(indices[0]):
+                    if idx < 0 or idx >= len(item_data):
+                        continue  # ข้ามดัชนีที่ไม่ถูกต้อง
+                    
+                    item_type = item_types[idx] if idx < len(item_types) else "unknown"
+                    item = item_data[idx]
+                    
+                    # คำนวณคะแนนความเกี่ยวข้องโดยใช้น้ำหนักตามประเภท
+                    similarity_score = 1.0 / (1.0 + distances[0][i])
+                    weighted_score = similarity_score * type_weights.get(item_type, 0.5)
+                    
+                    # สร้างข้อมูลผลลัพธ์
+                    result = {
+                        "id": item.get("id", ""),
+                        "type": item_type,
+                        "title": item.get("title", ""),
+                        "similarity_score": float(similarity_score),
+                        "weighted_score": float(weighted_score),
+                        "content": {}
+                    }
+                    
+                    # เพิ่มข้อมูลตามประเภท
+                    if item_type == "job":
+                        result["content"] = {
+                            "description": item.get("description", ""),
+                            "responsibilities": item.get("responsibilities", []),
+                            "skills": item.get("skills", []),
+                            "salary_ranges": item.get("salary_ranges", [])
+                        }
+                    elif item_type == "advice":
+                        result["content"] = {
+                            "text_preview": item.get("text_preview", ""),
+                            "tags": item.get("tags", []),
+                            "source": item.get("source", ""),
+                            "url": item.get("url", "")
+                        }
+                    elif item_type == "user":
+                        result["content"] = {
+                            "name": item.get("name", ""),
+                            "institution": item.get("institution", ""),
+                            "education_status": item.get("education_status", ""),
+                            "skills": item.get("skills", [])
+                        }
+                    
+                    processed_results.append(result)
+                
+                # เรียงลำดับผลลัพธ์ตาม weighted_score
+                processed_results.sort(key=lambda x: x["weighted_score"], reverse=True)
+                
+                # จำกัดจำนวนผลลัพธ์
+                results = processed_results[:limit]
+                
+                print(f"{Fore.GREEN}✅ ค้นหาสำเร็จ พบ {len(results)} ผลลัพธ์{Style.RESET_ALL}")
+                logger.info(f"ค้นหาสำเร็จ พบ {len(results)} ผลลัพธ์")
+                
+                # แสดงผลลัพธ์
+                if results:
+                    print(f"\n{Fore.CYAN}🔍 ผลลัพธ์การค้นหา:{Style.RESET_ALL}")
+                    for i, result in enumerate(results):
+                        item_type = result["type"]
+                        item_type_str = {
+                            "job": "อาชีพ",
+                            "advice": "คำแนะนำ",
+                            "user": "ผู้ใช้"
+                        }.get(item_type, item_type)
+                        
+                        print(f"{i+1}. {Fore.GREEN}{result['title']}{Style.RESET_ALL} " + 
+                            f"({item_type_str}, คะแนน: {Fore.YELLOW}{result['weighted_score']:.2f}{Style.RESET_ALL})")
+                else:
+                    print(f"{Fore.YELLOW}⚠️ ไม่พบผลลัพธ์สำหรับคำค้นหานี้{Style.RESET_ALL}")
+                
+                return results
+                
+            except Exception as e:
+                error_msg = f"เกิดข้อผิดพลาดในการค้นหา: {str(e)}"
+                logger.error(error_msg)
+                print(f"{Fore.RED}❌ {error_msg}{Style.RESET_ALL}")
+                
+                # ทำ fallback ตามประเภทคำถาม
+                if query_type == "resume":
+                    return self.search_career_advices(query, limit)
+                elif query_type == "user":
+                    return self._fallback_search_users(corrected_query, keywords, limit)
+                else:
+                    return self.search_jobs(query, limit)
+        
+        except Exception as e:
+            error_msg = f"เกิดข้อผิดพลาดในการค้นหาแบบรวม: {str(e)}"
+            logger.error(error_msg)
+            print(f"{Fore.RED}❌ {error_msg}{Style.RESET_ALL}")
+            
+            # ทำ fallback ตามประเภทคำถาม
+            if query_type == "resume":
+                return self.search_career_advices(query, limit)
+            elif query_type == "user":
+                return self._fallback_search_users(corrected_query, keywords, limit)
+            else:
+                return self.search_jobs(query, limit)
+                    
+    def _identify_query_type(self, query: str, keywords: List[str]) -> str:
+        """
+        ระบุประเภทของคำถามว่าเกี่ยวข้องกับอาชีพ คำแนะนำ หรือผู้ใช้
+        
+        Args:
+            query: คำค้นหา
+            keywords: คำสำคัญที่สกัดได้จากคำค้นหา
+            
+        Returns:
+            str: ประเภทของคำถาม ("job", "resume", "user")
+        """
+        # นับจำนวนคำที่เกี่ยวข้องกับแต่ละประเภท
+        job_count = sum(1 for kw in keywords if kw.lower() in self.tech_keywords or kw.lower() in self.job_query_keywords)
+        resume_count = sum(1 for kw in keywords if kw.lower() in self.resume_keywords)
+        user_count = sum(1 for kw in keywords if kw.lower() in self.user_keywords)
+        
+        # คำถามเกี่ยวกับผู้ใช้มีคำสำคัญเฉพาะ
+        if user_count > 0 and (user_count >= job_count and user_count >= resume_count):
+            return "user"
+        
+        # ตรวจสอบคำที่เกี่ยวข้องกับ resume
+        if resume_count > 0 and (resume_count >= job_count):
+            # คำถามเกี่ยวกับ resume และการสมัครงาน
+            return "resume"
+        
+        # คำถามเกี่ยวข้องกับอาชีพ (เป็นกรณีพื้นฐาน)
+        return "job"
+
+    def _fallback_search_users(self, query: str, keywords: List[str], limit: int = 5) -> List[Dict[str, Any]]:
+        """
+        ค้นหาผู้ใช้แบบ fallback ในกรณีที่ไม่มี FAISS index
+        
+        Args:
+            query: คำค้นหาที่ปรับปรุงแล้ว
+            keywords: คำสำคัญที่สกัดได้จากคำค้นหา
+            limit: จำนวนผลลัพธ์ที่ต้องการ
+            
+        Returns:
+            List[Dict[str, Any]]: รายการผู้ใช้ที่เกี่ยวข้อง
+        """
+        results = []
+        
+        try:
+            # โหลดข้อมูลผู้ใช้
+            from src.utils.config import USERS_DIR
+            users_file = os.path.join(USERS_DIR, "users.json")
+            
+            if not os.path.exists(users_file):
+                logger.warning(f"ไม่พบไฟล์ข้อมูลผู้ใช้: {users_file}")
+                return []
+            
+            with open(users_file, 'r', encoding='utf-8') as f:
+                users_data = json.load(f)
+            
+            for user in users_data:
+                score = 0
+                user_id = user.get("id", "")
+                
+                # ตรวจสอบชื่อ
+                if "name" in user and any(kw.lower() in user["name"].lower() for kw in keywords):
+                    score += 5
+                
+                # ตรวจสอบสถาบันการศึกษา
+                if "institution" in user and any(kw.lower() in user["institution"].lower() for kw in keywords):
+                    score += 3
+                
+                # ตรวจสอบทักษะ
+                if "skills" in user:
+                    for skill in user["skills"]:
+                        skill_name = skill.get("name", "")
+                        if any(kw.lower() in skill_name.lower() for kw in keywords):
+                            score += 2
+                
+                # ตรวจสอบภาษาโปรแกรม
+                if "programming_languages" in user:
+                    for lang in user["programming_languages"]:
+                        if any(kw.lower() in lang.lower() for kw in keywords):
+                            score += 2
+                
+                # เพิ่มผลลัพธ์ที่มีคะแนนมากกว่า 0
+                if score > 0:
+                    user_result = {
+                        "id": f"user_{user_id}",
+                        "type": "user",
+                        "title": user.get("name", f"ผู้ใช้ {user_id}"),
+                        "similarity_score": float(score / 10),
+                        "weighted_score": float(score / 10),
+                        "content": {
+                            "name": user.get("name", ""),
+                            "institution": user.get("institution", ""),
+                            "education_status": user.get("education_status", ""),
+                            "skills": [skill.get("name") for skill in user.get("skills", [])]
+                        }
+                    }
+                    results.append(user_result)
+            
+            # เรียงลำดับผลลัพธ์ตามคะแนน (มากไปน้อย)
+            results.sort(key=lambda x: x["weighted_score"], reverse=True)
+            
+            # จำกัดจำนวนผลลัพธ์
+            return results[:limit]
+            
+        except Exception as e:
+            logger.error(f"เกิดข้อผิดพลาดในการค้นหาข้อมูลผู้ใช้: {str(e)}")
+            return []
+    
+    

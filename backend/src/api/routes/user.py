@@ -166,3 +166,68 @@ async def download_resume(user_id: str = Path(..., description="รหัสผ�
         filename=os.path.basename(resume_path),
         media_type="application/octet-stream"
     )
+
+# แก้ไขฟังก์ชันที่เกี่ยวข้องกับการจัดการผู้ใช้:
+
+@router.post("/", response_model=User)
+async def create_new_user(user_data: UserCreate):
+    """
+    สร้างผู้ใช้ใหม่
+    
+    Args:
+        user_data: ข้อมูลผู้ใช้
+        
+    Returns:
+        User: ข้อมูลผู้ใช้ที่สร้างแล้ว
+    """
+    user = create_user(user_data)
+    if not user:
+        raise HTTPException(status_code=500, detail="ไม่สามารถสร้างผู้ใช้ได้")
+    
+    # อัปเดตข้อมูลผู้ใช้ในไฟล์รวม
+    update_user_to_combined_file(user)
+    
+    return user
+
+@router.patch("/{user_id}", response_model=User)
+async def update_user_info(
+    user_data: UserUpdate,
+    user_id: str = Path(..., description="รหัสผู้ใช้")
+):
+    """
+    อัปเดตข้อมูลผู้ใช้
+    
+    Args:
+        user_data: ข้อมูลผู้ใช้ที่ต้องการอัปเดต
+        user_id: รหัสผู้ใช้
+        
+    Returns:
+        User: ข้อมูลผู้ใช้ที่อัปเดตแล้ว
+    """
+    user = update_user(user_id, user_data)
+    if not user:
+        raise HTTPException(status_code=404, detail=f"ไม่พบผู้ใช้ {user_id}")
+    
+    # อัปเดตข้อมูลผู้ใช้ในไฟล์รวม
+    update_user_to_combined_file(user)
+    
+    return user
+
+@router.delete("/{user_id}")
+async def delete_user_info(user_id: str = Path(..., description="รหัสผู้ใช้")):
+    """
+    ลบผู้ใช้
+    
+    Args:
+        user_id: รหัสผู้ใช้
+        
+    Returns:
+        Dict[str, Any]: ผลลัพธ์การลบผู้ใช้
+    """
+    if not delete_user(user_id):
+        raise HTTPException(status_code=404, detail=f"ไม่พบผู้ใช้ {user_id}")
+    
+    # ลบข้อมูลผู้ใช้จากไฟล์รวม
+    remove_user_from_combined_file(user_id)
+    
+    return {"message": f"ลบผู้ใช้ {user_id} เรียบร้อยแล้ว"}

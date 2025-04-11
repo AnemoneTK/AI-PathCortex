@@ -476,3 +476,175 @@ if __name__ == "__main__":
             print(f"ลบผู้ใช้ {user.id} สำเร็จ")
     else:
         print("สร้างผู้ใช้ไม่สำเร็จ")
+
+
+def get_all_users() -> List[Dict[str, Any]]:
+    """
+    ดึงข้อมูลผู้ใช้ทั้งหมดจากไฟล์ users.json
+    
+    Returns:
+        List[Dict[str, Any]]: รายการข้อมูลผู้ใช้ทั้งหมด
+    """
+    users_file = os.path.join(USERS_DIR, "users.json")
+    
+    # ตรวจสอบว่าไฟล์มีอยู่หรือไม่
+    if not os.path.exists(users_file):
+        # สร้างไฟล์เปล่า
+        with open(users_file, 'w', encoding='utf-8') as f:
+            json.dump([], f, ensure_ascii=False, indent=2)
+        logger.info(f"สร้างไฟล์ข้อมูลผู้ใช้ใหม่: {users_file}")
+        return []
+    
+    try:
+        # อ่านข้อมูลจากไฟล์
+        with open(users_file, 'r', encoding='utf-8') as f:
+            users_data = json.load(f)
+        
+        logger.info(f"โหลดข้อมูลผู้ใช้สำเร็จ: {len(users_data)} รายการ")
+        return users_data
+    except Exception as e:
+        logger.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ใช้: {str(e)}")
+        return []
+
+def save_all_users(users_data: List[Dict[str, Any]]) -> bool:
+    """
+    บันทึกข้อมูลผู้ใช้ทั้งหมดลงไฟล์ users.json
+    
+    Args:
+        users_data: รายการข้อมูลผู้ใช้ทั้งหมด
+        
+    Returns:
+        bool: สถานะความสำเร็จ
+    """
+    users_file = os.path.join(USERS_DIR, "users.json")
+    
+    try:
+        # บันทึกข้อมูลลงไฟล์
+        with open(users_file, 'w', encoding='utf-8') as f:
+            json.dump(users_data, f, ensure_ascii=False, indent=2)
+        
+        logger.info(f"บันทึกข้อมูลผู้ใช้สำเร็จ: {len(users_data)} รายการ")
+        return True
+    except Exception as e:
+        logger.error(f"เกิดข้อผิดพลาดในการบันทึกข้อมูลผู้ใช้: {str(e)}")
+        return False
+
+def update_user_to_combined_file(user: User) -> bool:
+    """
+    อัปเดตข้อมูลผู้ใช้ในไฟล์ข้อมูลรวม
+    
+    Args:
+        user: ข้อมูลผู้ใช้ที่ต้องการอัปเดต
+        
+    Returns:
+        bool: สถานะความสำเร็จ
+    """
+    try:
+        # โหลดข้อมูลผู้ใช้ทั้งหมด
+        users_data = get_all_users()
+        
+        # ตรวจสอบว่ามีผู้ใช้อยู่แล้วหรือไม่
+        user_dict = user.dict()
+        user_id = user_dict.get("id")
+        
+        existing_index = None
+        for i, existing_user in enumerate(users_data):
+            if existing_user.get("id") == user_id:
+                existing_index = i
+                break
+        
+        # อัปเดตหรือเพิ่มข้อมูลผู้ใช้
+        if existing_index is not None:
+            users_data[existing_index] = user_dict
+            logger.info(f"อัปเดตข้อมูลผู้ใช้ {user_id} ในไฟล์รวม")
+        else:
+            users_data.append(user_dict)
+            logger.info(f"เพิ่มข้อมูลผู้ใช้ {user_id} ในไฟล์รวม")
+        
+        # บันทึกข้อมูลผู้ใช้ทั้งหมด
+        if save_all_users(users_data):
+            # อัปเดต vector database หลังจากบันทึกข้อมูลผู้ใช้
+            # ตรวจสอบว่า VectorCreator พร้อมใช้งานหรือไม่
+            try:
+                from src.utils.vector_creator import VectorCreator
+                from src.utils.config import PROCESSED_DATA_DIR, VECTOR_DB_DIR
+                
+                # สร้าง VectorCreator
+                creator = VectorCreator(
+                    processed_data_dir=PROCESSED_DATA_DIR,
+                    vector_db_dir=VECTOR_DB_DIR,
+                    clear_vector_db=False  # ไม่ล้างฐานข้อมูลเดิม
+                )
+                
+                # สร้าง embeddings แบบรวมข้อมูล
+                result = creator.create_combined_embeddings()
+                
+                if result["success"]:
+                    logger.info(f"อัปเดต vector database สำเร็จ: {result['vectors_count']} vectors")
+                else:
+                    logger.warning(f"อัปเดต vector database ไม่สำเร็จ: {result.get('error', 'ไม่ทราบสาเหตุ')}")
+            except Exception as e:
+                logger.error(f"เกิดข้อผิดพลาดในการอัปเดต vector database: {str(e)}")
+            
+            return True
+        
+        return False
+    except Exception as e:
+        logger.error(f"เกิดข้อผิดพลาดในการอัปเดตข้อมูลผู้ใช้ในไฟล์รวม: {str(e)}")
+        return False
+
+def remove_user_from_combined_file(user_id: str) -> bool:
+    """
+    ลบข้อมูลผู้ใช้จากไฟล์ข้อมูลรวม
+    
+    Args:
+        user_id: รหัสผู้ใช้ที่ต้องการลบ
+        
+    Returns:
+        bool: สถานะความสำเร็จ
+    """
+    try:
+        # โหลดข้อมูลผู้ใช้ทั้งหมด
+        users_data = get_all_users()
+        
+        # หาและลบผู้ใช้
+        original_length = len(users_data)
+        users_data = [user for user in users_data if user.get("id") != user_id]
+        
+        if len(users_data) < original_length:
+            # บันทึกข้อมูลผู้ใช้ทั้งหมด
+            if save_all_users(users_data):
+                logger.info(f"ลบข้อมูลผู้ใช้ {user_id} จากไฟล์รวมสำเร็จ")
+                
+                # อัปเดต vector database หลังจากลบข้อมูลผู้ใช้
+                try:
+                    from src.utils.vector_creator import VectorCreator
+                    from src.utils.config import PROCESSED_DATA_DIR, VECTOR_DB_DIR
+                    
+                    # สร้าง VectorCreator
+                    creator = VectorCreator(
+                        processed_data_dir=PROCESSED_DATA_DIR,
+                        vector_db_dir=VECTOR_DB_DIR,
+                        clear_vector_db=False  # ไม่ล้างฐานข้อมูลเดิม
+                    )
+                    
+                    # สร้าง embeddings แบบรวมข้อมูล
+                    result = creator.create_combined_embeddings()
+                    
+                    if result["success"]:
+                        logger.info(f"อัปเดต vector database สำเร็จ: {result['vectors_count']} vectors")
+                    else:
+                        logger.warning(f"อัปเดต vector database ไม่สำเร็จ: {result.get('error', 'ไม่ทราบสาเหตุ')}")
+                except Exception as e:
+                    logger.error(f"เกิดข้อผิดพลาดในการอัปเดต vector database: {str(e)}")
+                
+                return True
+            else:
+                logger.error(f"ไม่สามารถบันทึกข้อมูลผู้ใช้หลังจากลบ {user_id}")
+                return False
+        else:
+            logger.warning(f"ไม่พบข้อมูลผู้ใช้ {user_id} ในไฟล์รวม")
+            return False
+    except Exception as e:
+        logger.error(f"เกิดข้อผิดพลาดในการลบข้อมูลผู้ใช้จากไฟล์รวม: {str(e)}")
+        return False
