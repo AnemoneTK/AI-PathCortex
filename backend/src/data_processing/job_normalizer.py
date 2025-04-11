@@ -9,10 +9,10 @@ from src.utils.text_processor import TextProcessor  # Import the TextProcessor
 
 class JobDataNormalizer:
     def __init__(self, 
-                 jobs_data_path: str = 'data/raw/other_sources/jobs_data.json',
-                 job_responsibilities_path: str = 'data/raw/other_sources/job_responsibilities.json', 
-                 it_salary_data_path: str = 'data/raw/other_sources/it_salary_data.json',
-                 output_dir: str = 'data/processed/normalized_jobs'):
+                 jobs_data_path: str = 'app/data/raw/other_sources/jobs_data.json',
+                 job_responsibilities_path: str = 'app/data/raw/other_sources/job_responsibilities.json', 
+                 it_salary_data_path: str = 'app/data/raw/other_sources/it_salary_data.json',
+                 output_dir: str = 'app/data/processed/normalized_jobs'):
         """
         Initialize the job data normalizer with paths to input files and output directory
         """

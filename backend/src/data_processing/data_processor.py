@@ -255,10 +255,10 @@ if __name__ == "__main__":
     processor = JobDataProcessor()
     
     # กำหนดพาธ
-    input_dir = "data/processed/normalized_jobs"
-    cleaned_output_dir = "data/processed/cleaned_jobs"
-    vector_index_path = "data/vector_db/job_knowledge/faiss_index.bin"
-    vector_metadata_path = "data/vector_db/job_knowledge/job_metadata.json"
+    input_dir = "app/data/processed/normalized_jobs"
+    cleaned_output_dir = "app/data/processed/cleaned_jobs"
+    vector_index_path = "app/data/vector_db/job_knowledge/faiss_index.bin"
+    vector_metadata_path = "app/data/vector_db/job_knowledge/job_metadata.json"
     
     # รันกระบวนการทั้งหมด
     processor.run_full_process(

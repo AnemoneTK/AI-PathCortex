@@ -47,7 +47,7 @@ else:
 
 # สร้างพาธที่จำเป็น
 BACKEND_DIR = os.path.join(BASE_DIR, "backend")
-DATA_DIR = os.path.join(BASE_DIR, "data")
+DATA_DIR = os.path.join(BASE_DIR,"app", "data")
 LOGS_DIR = os.path.join(BACKEND_DIR, "logs")
 UPLOADS_DIR = os.path.join(BACKEND_DIR, "uploads")
 

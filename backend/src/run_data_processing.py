@@ -146,7 +146,7 @@ def run_data_collection(args):
         display_working("เริ่มดึงข้อมูลบทความแนะนำอาชีพ...")
         output_dir = os.path.join(args.processed_dir, "career_advices")
         article_scraper = SimpleArticleScraper(output_dir)
-        article_scraper.scrape_to_txt()
+        article_scraper.scrape()
         display_success("เก็บข้อมูลบทความแนะนำอาชีพเสร็จสิ้น")
         
         # 3. เก็บข้อมูลเงินเดือน
@@ -681,4 +681,23 @@ def main():
     print_summary(args, start_time)
 
 if __name__ == "__main__":
+    """ฟังก์ชันหลักสำหรับการประมวลผลข้อมูล"""
+    # เพิ่มส่วนนี้ก่อน parser
+    base_dir = os.environ.get('APP_PATH', '/app')
+    raw_dir = os.path.join(base_dir, 'raw')
+    processed_dir = os.path.join(base_dir, 'processed')
+    vector_db_dir = os.path.join(base_dir, 'vector_db')
+    embedding_dir = os.path.join(base_dir, 'embedding')
+
+    # สร้างตัวแยกวิเคราะห์อาร์กิวเมนต์
+    parser = argparse.ArgumentParser(description='เครื่องมือประมวลผลข้อมูลอาชีพด้าน IT')
+    parser.add_argument('-b', '--base-dir', type=str, default=base_dir,
+                        help='โฟลเดอร์หลักของโปรเจค')
+    parser.add_argument('-r', '--raw-dir', type=str, default=raw_dir,
+                        help='โฟลเดอร์ข้อมูลดิบ')
+    parser.add_argument('-p', '--processed-dir', type=str, default=processed_dir,
+                        help='โฟลเดอร์ข้อมูลที่ประมวลผลแล้ว')
+    parser.add_argument('-v', '--vector-db-dir', type=str, default=vector_db_dir,
+                        help='โฟลเดอร์สำหรับฐานข้อมูลเวกเตอร์')
+    
     main()
