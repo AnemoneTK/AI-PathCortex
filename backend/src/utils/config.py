@@ -14,74 +14,71 @@ from enum import Enum
 
 # โหลดค่าจากไฟล์ .env (ค้นหาจากหลายตำแหน่ง)
 # ลำดับการค้นหา: /app/.env (Docker), .env (โฟลเดอร์ปัจจุบัน), parent dirs
-dotenv_paths = [
-    "/app/.env",  # Docker container root path
-    ".env",
-    "../.env",
-    "../../.env",
-]
-
+dotenv_paths = ["/app/.env", ".env", "../.env", "../../.env"]
 for dotenv_path in dotenv_paths:
     if os.path.exists(dotenv_path):
         load_dotenv(dotenv_path)
         print(f"Loaded .env from {os.path.abspath(dotenv_path)}")
         break
 
+
 # กำหนด BASE_DIR จาก environment variable (สำหรับ Docker) หรือคำนวณจาก path ปัจจุบัน
-APP_PATH = os.environ.get("APP_PATH", None)
+APP_PATH = os.environ.get("APP_PATH")
 
-if APP_PATH:
-    # Docker mode: ใช้ APP_PATH จาก environment variable
-    BASE_DIR = APP_PATH
-    print(f"Using BASE_DIR from APP_PATH: {BASE_DIR}")
+if APP_PATH and os.path.exists(APP_PATH):
+    # Docker: ใช้โครงสร้าง /app/data
+    print(f"Running in Docker mode: APP_PATH={APP_PATH}")
+    ROOT_DIR = os.path.dirname(APP_PATH)  # /
+    BASE_DIR = os.path.join(ROOT_DIR, "app")
+    DATA_DIR = os.path.join(BASE_DIR, "data")
+
+    print(f"BASE_DIR : {BASE_DIR}")
+    print(f"DATA_DIR: {DATA_DIR}")
 else:
-    # Local mode: คำนวณจาก path ของไฟล์ปัจจุบัน
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # Local: ใช้โครงสร้าง backend/data
+    print("Running in local development mode")
+    current_dir = os.path.dirname(os.path.abspath(__file__))  # /backend/src/utils
+    backend_dir = os.path.dirname(os.path.dirname(current_dir))  # /backend
+    project_dir = os.path.dirname(backend_dir)  # /project_root
     
-    # "src/utils/config.py" -> "src/utils" -> "src" -> "backend"
-    backend_dir = os.path.dirname(os.path.dirname(current_dir))
+    BACKEND_DIR = backend_dir  # /backend - เทียบเท่ากับ /app ใน Docker
+    DATA_DIR = os.path.join(backend_dir, "data")  # /backend/data
     
-    # BASE_DIR = โฟลเดอร์ "AI-PathCortex"
-    BASE_DIR = os.path.dirname(backend_dir)
-    print(f"Calculated BASE_DIR: {BASE_DIR}")
+    print(f"BASE_DIR (backend): {BACKEND_DIR}")
+    print(f"DATA_DIR: {DATA_DIR}")
 
-# สร้างพาธที่จำเป็น
-BACKEND_DIR = os.path.join(BASE_DIR, "backend")
-DATA_DIR = os.path.join(BASE_DIR,"app", "data")
-LOGS_DIR = os.path.join(BACKEND_DIR, "logs")
-UPLOADS_DIR = os.path.join(BACKEND_DIR, "uploads")
-
-# โฟลเดอร์ข้อมูล
+# กำหนดโฟลเดอร์สำหรับข้อมูลต่างๆ
+LOGS_DIR = os.path.join(DATA_DIR, "logs")
+UPLOADS_DIR = os.path.join(DATA_DIR, "uploads")
 EMBEDDING_DIR = os.path.join(DATA_DIR, "embedding")
 PROCESSED_DATA_DIR = os.path.join(DATA_DIR, "processed")
 RAW_DATA_DIR = os.path.join(DATA_DIR, "raw")
 VECTOR_DB_DIR = os.path.join(DATA_DIR, "vector_db")
 FINE_TUNE_DIR = os.path.join(DATA_DIR, "fine_tune")
+USERS_DIR = os.path.join(DATA_DIR, "users")
 
-# โฟลเดอร์ย่อยของ PROCESSED_DATA_DIR
+# โฟลเดอร์ย่อยของข้อมูลที่ประมวลผลแล้ว
 CLEANED_JOBS_DIR = os.path.join(PROCESSED_DATA_DIR, "cleaned_jobs")
 NORMALIZED_JOBS_DIR = os.path.join(PROCESSED_DATA_DIR, "normalized_jobs")
 CAREER_ADVICES_DIR = os.path.join(PROCESSED_DATA_DIR, "career_advices")
 
-# โฟลเดอร์ย่อยของ VECTOR_DB_DIR
-JOB_VECTOR_DIR = os.path.join(VECTOR_DB_DIR, "job_knowledge")
-ADVICE_VECTOR_DIR = os.path.join(VECTOR_DB_DIR, "career_advice")
-
-# โฟลเดอร์ผู้ใช้
-USERS_DIR = os.path.join(DATA_DIR, "users")
-
+# โฟลเดอร์ย่อยของ vector database
 JOB_VECTOR_DIR = os.path.join(VECTOR_DB_DIR, "job_knowledge")
 ADVICE_VECTOR_DIR = os.path.join(VECTOR_DB_DIR, "career_advice")
 COMBINED_VECTOR_DIR = os.path.join(VECTOR_DB_DIR, "combined_knowledge")
+
+# โฟลเดอร์ย่อยของข้อมูลดิบ
+RAW_JOBSDB_DIR = os.path.join(RAW_DATA_DIR, "jobsdb")
+RAW_OTHER_SOURCES_DIR = os.path.join(RAW_DATA_DIR, "other_sources")
 
 # สร้างโฟลเดอร์ที่จำเป็นทั้งหมด
 dirs_to_create = [
     DATA_DIR, LOGS_DIR, UPLOADS_DIR, EMBEDDING_DIR, PROCESSED_DATA_DIR, 
     RAW_DATA_DIR, VECTOR_DB_DIR, FINE_TUNE_DIR, CLEANED_JOBS_DIR, 
     NORMALIZED_JOBS_DIR, CAREER_ADVICES_DIR, JOB_VECTOR_DIR, 
-    ADVICE_VECTOR_DIR, COMBINED_VECTOR_DIR, USERS_DIR 
+    ADVICE_VECTOR_DIR, COMBINED_VECTOR_DIR, USERS_DIR,
+    RAW_JOBSDB_DIR, RAW_OTHER_SOURCES_DIR
 ]
-
 for dir_path in dirs_to_create:
     os.makedirs(dir_path, exist_ok=True)
     print(f"Ensured directory exists: {dir_path}")

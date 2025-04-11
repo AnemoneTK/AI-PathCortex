@@ -55,7 +55,7 @@ class JobResponsibilityScraper:
     def __init__(self, url: str = "https://www.talance.tech/blog/it-job-responsibility/", 
                  output_folder: str = "data/raw/other_sources", 
                  filename: str = "job_responsibilities.json",
-                 timeout: int = 30):
+                 timeout: int = 60):
         self.url = url
         self.output_folder = output_folder
         self.filename = filename
@@ -433,7 +433,7 @@ def main():
                         help='พาธของโฟลเดอร์ที่ต้องการบันทึกผลลัพธ์')
     parser.add_argument('-f', '--filename', type=str, default="job_responsibilities.json",
                         help='ชื่อไฟล์ JSON ที่ต้องการบันทึกผลลัพธ์')
-    parser.add_argument('-t', '--timeout', type=int, default=30,
+    parser.add_argument('-t', '--timeout', type=int, default=60,
                         help='เวลาหมดเวลาสำหรับการเชื่อมต่อ (วินาที)')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='แสดงรายละเอียดการทำงานโดยละเอียด')

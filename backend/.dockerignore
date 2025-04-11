@@ -6,7 +6,6 @@ __pycache__/
 .Python
 .git/
 .gitignore
-.env
 .venv
 *data
 *data copy

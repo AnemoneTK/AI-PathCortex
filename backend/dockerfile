@@ -6,6 +6,7 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV APP_PATH=/app/data
+ENV PYTHONPATH=/app
 
 RUN pip install --upgrade pip
 
@@ -13,32 +14,48 @@ RUN pip install --upgrade pip
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install sentence-transformers
-# คัดลอกโค้ดและข้อมูลทั้งหมด
-COPY . .
 
 # สร้างโฟลเดอร์ที่จำเป็น
-RUN mkdir -p /app/data/raw \
-    /app/data/processed \
+RUN mkdir -p /app/data/raw/jobsdb \
+    /app/data/raw/other_sources \
+    /app/data/processed/normalized_jobs \
+    /app/data/processed/cleaned_jobs \
+    /app/data/processed/career_advices \
     /app/data/embedding \
-    /app/data/vector_db \
+    /app/data/vector_db/job_knowledge \
+    /app/data/vector_db/career_advice \
+    /app/data/vector_db/combined_knowledge \
     /app/data/fine_tune \
-    /app/logs \
-    /app/uploads \
+    /app/data/logs \
+    /app/data/uploads \
     /app/data/users
 
+# คัดลอกโค้ดและข้อมูลทั้งหมด
+
+
+# # เพิ่มในส่วนสุดท้ายของ Dockerfile
 # RUN echo '#!/bin/bash \n\
 # if [ "$RUN_DATA_PROCESSING" = "true" ]; then \n\
-# echo "เริ่มต้นการประมวลผลข้อมูล..." \n\
-# python -m src.run_data_processing --skip-collection --no-clear \n\
+#     echo "เริ่มต้นการประมวลผลข้อมูล..." \n\
+#     python -m src.run_data_processing \n\
 # fi \n\
 # echo "เริ่มต้น API server..." \n\
 # exec uvicorn src.api.app:app --host 0.0.0.0 --port 8000 \n\
 # ' > /app/startup.sh && chmod +x /app/startup.sh
 
+
 # RUN python -m src.run_data_processing --verbose 
 
 # เปิดพอร์ตสำหรับ API
 EXPOSE 8000
+
+COPY . .
+
+# ตั้งค่าให้ entrypoint.sh สามารถเรียกใช้งานได้
+RUN chmod +x /app/entrypoint.sh
+
+# ใช้ entrypoint.sh เป็น entrypoint
+ENTRYPOINT ["/app/entrypoint.sh"]
 
 # รันแอปพลิเคชัน
 CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000"]

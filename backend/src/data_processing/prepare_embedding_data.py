@@ -165,14 +165,14 @@ def main():
     
     # กำหนดตำแหน่งไฟล์จาก arguments หรือใช้ค่าเริ่มต้น
     project_root = Path(__file__).parents[3]  # ย้อนกลับไป 3 ระดับจากไฟล์ปัจจุบัน
-    processed_data_dir = project_root / "backend" / "data"
+    processed_data_dir = project_root / "app" / "data"
 
     # โฟลเดอร์สำหรับเก็บข้อมูล embeddings
     embedding_dir = processed_data_dir / "embedding"
     os.makedirs(embedding_dir, exist_ok=True)  # สร้างโฟลเดอร์ถ้ายังไม่มี
 
     # ตำแหน่งไฟล์นำเข้า
-    cleaned_jobs_dir = args.cleaned_jobs_dir if args.cleaned_jobs_dir else processed_data_dir / "processed" / "cleaned_jobs"
+    cleaned_jobs_dir = args.cleaned_jobs_dir if args.cleaned_jobs_dir else processed_data_dir / "processed" / "normalized_jobs"
     advices_file = args.advices_file if args.advices_file else processed_data_dir / "processed" / "career_advices" / "career_advices.json"
 
     # ตำแหน่งไฟล์ผลลัพธ์

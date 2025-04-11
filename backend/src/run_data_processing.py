@@ -683,7 +683,8 @@ def main():
 if __name__ == "__main__":
     """ฟังก์ชันหลักสำหรับการประมวลผลข้อมูล"""
     # เพิ่มส่วนนี้ก่อน parser
-    base_dir = os.environ.get('APP_PATH', '/app')
+    app_dir = os.environ.get('APP_PATH', '/app')
+    base_dir = os.path.join(app_dir,'app', 'data')
     raw_dir = os.path.join(base_dir, 'raw')
     processed_dir = os.path.join(base_dir, 'processed')
     vector_db_dir = os.path.join(base_dir, 'vector_db')

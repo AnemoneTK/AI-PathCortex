@@ -138,8 +138,8 @@ class VectorSearch:
         self.processed_data_dir = os.path.join(project_root, "data", "processed")
         try:
             # ลองใช้ค่าจาก config ถ้ามี
-            from src.utils.config import CLEANED_JOBS_DIR
-            self.normalized_jobs_dir = CLEANED_JOBS_DIR
+            from src.utils.config import NORMALIZED_JOBS_DIR
+            self.normalized_jobs_dir = NORMALIZED_JOBS_DIR
         except (ImportError, AttributeError):
             # ถ้าไม่มีให้ใช้ค่าเริ่มต้น
             self.normalized_jobs_dir = os.path.join(self.processed_data_dir, "normalized_jobs")

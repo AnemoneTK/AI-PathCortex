@@ -112,7 +112,7 @@ class VectorCreator:
         Returns:
             List ของข้อมูลอาชีพ
         """
-        cleaned_jobs_dir = self.processed_data_dir / "cleaned_jobs"
+        cleaned_jobs_dir = self.processed_data_dir / "normalized_jobs"
         job_files = list(cleaned_jobs_dir.glob("*.json"))
         
         if not job_files:

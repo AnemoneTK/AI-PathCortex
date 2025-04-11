@@ -214,6 +214,62 @@ class SimpleArticleScraper:
         print(f"{Fore.CYAN}ไฟล์ข้อมูล: {self.advice_file.absolute()}")
         print(f"{Fore.CYAN}{Style.BRIGHT}=============================={Style.RESET_ALL}")
 
+    def scrape(self):
+        """เรียกใช้งานฟังก์ชัน main ภายในคลาส"""
+        print(f"{Fore.CYAN}{Style.BRIGHT}=== เริ่มต้นการเก็บข้อมูลบทความแนะนำอาชีพ ==={Style.RESET_ALL}")
+        
+        # รายการชื่อบทความที่ต้องการเก็บข้อมูล
+        article_slugs = [
+            "โดดเด่นพอที่จะได้งาน",
+            "ตอบคำถามสัมภาษณ์งาน-4",
+            "differences-between-resume-and-portfolio",
+            "ทำงานไม่ตรงสาย",
+            "คุณสมบัติ-มัดใจนายจ้าง",
+            "บริษัทเล็ก-vs-บริษัทใหญ่-2",
+            "skillsต้องมีเพื่อตลาดงานai",
+            "ลงทะเบียนว่างงาน",
+            "คำถามที่จะทำให้คุณเด่น",
+            "การเขียนจดหมายสมัครงาน-2",
+            "จุดมุ่งหมายในอาชีพ",
+            "ตัวอย่าง-เขียนเรซูเม่",
+            "วิธีการเขียนเรซูเม่",
+            "นัด-ไม่ไปสัมภาษณ์งาน",
+            "เตรียม-ก่อนสัมภาษณ์งาน",
+            "เรซูเม่ที่ไม่น่าอ่าน",
+            "resume-vs-cv-2022",
+            "เปลี่ยนสายงานไปสายไอที",
+            "งานไอที-อาชีพสุดปัง",
+            "ต่อรองเงินเดือนจบใหม่",
+            "ai-tools",
+            "แนะนำตัวสัมภาษณ์งาน",
+            "เด็กจบใหม่สู่อาเซียน",
+            "สมัครงานบริษัทเล็ก-ใหญ่",
+            "ทักษะ-เด็กจบใหม่",
+            "หลักสูตรเรซูเม่-จบใหม่",
+            "freshgrad-first-job-hunt",
+        ]
+        
+        def create_jobsdb_url(article_slug):
+            """สร้าง URL เต็มจากส่วนท้ายของ URL"""
+            return f"https://th.jobsdb.com/th/career-advice/article/{article_slug}"
+        
+        # สร้าง URL เต็ม
+        urls = [create_jobsdb_url(slug) for slug in article_slugs]
+        
+        print(f"{Fore.CYAN}{Style.BRIGHT}=== เริ่มต้นดึงข้อมูล {len(urls)} บทความ ==={Style.RESET_ALL}")
+        
+        # ดึงข้อมูลจากแต่ละ URL
+        for i, url in enumerate(urls):
+            print(f"\n{Fore.CYAN}{Style.BRIGHT}=== บทความที่ {i+1}/{len(urls)} ==={Style.RESET_ALL}")
+            article_data = self.scrape_article(url)
+            if article_data:
+                self.save_article(article_data)
+            print(f"{Fore.CYAN}{'=' * 50}")
+        
+        # แสดงสรุปผลการทำงาน
+        self.print_summary()
+        return True
+
 def main():
     # กำหนดไดเรกทอรีเก็บข้อมูล
     base_dir = Path(__file__).resolve().parent.parent.parent

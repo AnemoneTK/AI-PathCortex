@@ -14,7 +14,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))  #
 sys.path.append(project_root)
 
 try:
-    from backend.src.utils.vector_creator import VectorCreator
+    from src.utils.vector_creator import VectorCreator
     print(f"{Fore.GREEN}✅ นำเข้าโมดูล VectorCreator สำเร็จ{Style.RESET_ALL}")
 except ImportError as e:
     print(f"{Fore.RED}❌ ไม่สามารถนำเข้าโมดูล VectorCreator: {str(e)}{Style.RESET_ALL}")
@@ -34,8 +34,8 @@ def main():
     args = parser.parse_args()
     
     # กำหนดตำแหน่งโฟลเดอร์จาก arguments หรือใช้ค่าเริ่มต้น
-    processed_data_dir = args.processed_data_dir if args.processed_data_dir else os.path.join(project_root,"backend", "data", "processed")
-    vector_db_dir = args.vector_db_dir if args.vector_db_dir else os.path.join(project_root,"backend", "data", "vector_db")
+    processed_data_dir = args.processed_data_dir if args.processed_data_dir else os.path.join(project_root,"app", "data", "processed")
+    vector_db_dir = args.vector_db_dir if args.vector_db_dir else os.path.join(project_root,"app", "data", "vector_db")
     
     print(f"\n{Fore.CYAN}{'='*50}")
     print(f"{Fore.CYAN}= เริ่มต้นการสร้าง Vector Database ={Style.RESET_ALL}")
