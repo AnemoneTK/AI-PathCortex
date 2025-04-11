@@ -20,10 +20,19 @@ COPY . .
 RUN mkdir -p /app/data/embedding /app/data/processed /app/data/raw /app/data/vector_db \
     /app/data/fine_tune /app/logs /app/uploads /app/data/users
 
-RUN python -m src.run_data_processing --verbose
+RUN echo '#!/bin/bash \n\
+if [ "$RUN_DATA_PROCESSING" = "true" ]; then \n\
+echo "เริ่มต้นการประมวลผลข้อมูล..." \n\
+python -m src.run_data_processing --skip-collection --no-clear \n\
+fi \n\
+echo "เริ่มต้น API server..." \n\
+exec uvicorn src.api.app:app --host 0.0.0.0 --port 8000 \n\
+' > /app/startup.sh && chmod +x /app/startup.sh
 
 # เปิดพอร์ตสำหรับ API
 EXPOSE 8000
 
 # รันแอปพลิเคชัน
-CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+# CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+
+CMD ["/app/startup.sh"]
