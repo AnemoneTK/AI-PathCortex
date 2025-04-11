@@ -101,7 +101,7 @@ class VectorSearch:
             embedding_model = None
 
         self.embedding_model = embedding_model
-    
+
         print(f"{Fore.CYAN}⚙️ กำลังเริ่มต้น VectorSearch...{Style.RESET_ALL}")
         self.vector_db_dir = vector_db_dir
         self.embedding_model = embedding_model
@@ -763,6 +763,156 @@ class VectorSearch:
                 return item
         return None
     
+    def search_relevant_advices(self, query: str, limit: int = 5, filter_tags: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        """
+        ค้นหาคำแนะนำอาชีพที่เกี่ยวข้องกับคำค้นหา
+        
+        Args:
+            query: คำค้นหา
+            limit: จำนวนผลลัพธ์ที่ต้องการ
+            filter_tags: กรองเฉพาะคำแนะนำที่มีแท็กที่ระบุ
+            
+        Returns:
+            รายการคำแนะนำอาชีพที่เกี่ยวข้อง
+        """
+        print(f"{Fore.CYAN}🔍 กำลังค้นหาคำแนะนำอาชีพที่เกี่ยวข้องกับ: \"{query}\"{Style.RESET_ALL}")
+        logger.info(f"กำลังค้นหาคำแนะนำอาชีพที่เกี่ยวข้องกับ: {query}")
+        
+        # ปรับปรุงคำค้นหาและแยกคำสำคัญ
+        corrected_query, keywords = self._normalize_query(query)
+        
+        if corrected_query != query:
+            print(f"{Fore.YELLOW}ℹ️ คำค้นหาที่ปรับปรุง: \"{corrected_query}\"{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}ℹ️ คำสำคัญที่พบ: {', '.join(keywords)}{Style.RESET_ALL}")
+            logger.info(f"คำค้นหาที่ปรับปรุง: \"{corrected_query}\", คำสำคัญที่พบ: {', '.join(keywords)}")
+        
+        # ตรวจสอบว่ามีการกรองด้วยแท็กหรือไม่
+        if filter_tags:
+            print(f"{Fore.CYAN}🔖 กรองผลลัพธ์ด้วยแท็ก: {', '.join(filter_tags)}{Style.RESET_ALL}")
+            logger.info(f"กรองผลลัพธ์ด้วยแท็ก: {filter_tags}")
+        
+        # ตรวจสอบว่า index มีอยู่จริง
+        if not os.path.exists(self.advice_index_file) or not os.path.exists(self.advice_metadata_file):
+            warning_msg = "ไม่พบไฟล์ FAISS index หรือ metadata สำหรับข้อมูลคำแนะนำอาชีพ จะใช้การค้นหาแบบ fallback แทน"
+            logger.warning(warning_msg)
+            print(f"{Fore.YELLOW}⚠️ {warning_msg}{Style.RESET_ALL}")
+            
+            # ถ้าไม่มี FAISS index ให้ใช้การค้นหาแบบ fallback แทน
+            return self._fallback_search_advices(corrected_query, keywords, limit)
+        
+        try:
+            print(f"{Fore.CYAN}⏳ กำลังโหลด FAISS index...{Style.RESET_ALL}")
+            # โหลด FAISS index
+            index = faiss.read_index(str(self.advice_index_file))
+            
+            print(f"{Fore.CYAN}⏳ กำลังสร้าง embedding สำหรับคำค้นหา...{Style.RESET_ALL}")
+            # สร้าง embedding สำหรับคำค้นหา
+            try:
+                if self.embedding_model is None:
+                    # จำลองการสร้าง embedding
+                    print(f"{Fore.YELLOW}ℹ️ ไม่พบโมเดล embedding จะใช้การจำลอง vector แทน{Style.RESET_ALL}")
+                    logger.warning("ไม่พบโมเดล embedding จะใช้การจำลอง vector แทน")
+                    
+                    # สร้าง embedding จากคำสำคัญแทนที่จะใช้คำค้นหาเต็ม
+                    query_embedding = self._create_mock_embedding(" ".join(keywords), dimension=index.d)
+                else:
+                    # ใช้โมเดลที่กำหนด
+                    query_embedding = self.embedding_model.encode([corrected_query])[0]
+                    # Normalize vector
+                    query_embedding = query_embedding / np.linalg.norm(query_embedding)
+                
+                print(f"{Fore.CYAN}🔎 กำลังค้นหาใน vector database...{Style.RESET_ALL}")
+                # ค้นหาใน FAISS index
+                query_embedding = np.array([query_embedding]).astype(np.float32)
+                # เพิ่มจำนวนผลลัพธ์ที่ต้องการเพื่อให้มีโอกาสได้ผลลัพธ์หลังจากการกรอง
+                additional_results = 20 if filter_tags else 0
+                distances, indices = index.search(query_embedding, limit + additional_results)
+                
+                # แปลงผลลัพธ์
+                results = []
+                filtered_count = 0
+                
+                for i, idx in enumerate(indices[0]):
+                    if idx < 0 or idx >= len(self.advice_metadata):
+                        continue  # ข้ามดัชนีที่ไม่ถูกต้อง
+                        
+                    item = self.advice_metadata[idx]
+                    
+                    # กรองตาม tags ถ้ามีการระบุ
+                    if filter_tags:
+                        item_tags = item.get("tags", [])
+                        if not any(tag in filter_tags for tag in item_tags):
+                            filtered_count += 1
+                            continue
+                    
+                    # สร้างข้อมูลผลลัพธ์
+                    advice_result = {
+                        "id": item.get("id", "unknown"),
+                        "title": item.get("title", ""),
+                        "text_preview": item.get("text", ""),
+                        "tags": item.get("tags", []),
+                        "source": item.get("source", ""),
+                        "url": item.get("url", ""),
+                        "similarity_score": float(1 / (1 + distances[0][i]))  # แปลง distance เป็น similarity score
+                    }
+                    results.append(advice_result)
+                    
+                    # หลังจากกรอง ถ้าได้ผลลัพธ์ครบแล้วให้หยุด
+                    if len(results) >= limit:
+                        break
+                
+                # ถ้าไม่พบผลลัพธ์ หรือพบน้อยกว่าที่ต้องการ ให้ใช้การค้นหาแบบ fallback เสริม
+                if len(results) < limit:
+                    fallback_results = self._fallback_search_advices(corrected_query, keywords, limit - len(results))
+                    
+                    # เพิ่มผลลัพธ์จาก fallback ที่ไม่ซ้ำ
+                    existing_ids = {result["id"] for result in results}
+                    for result in fallback_results:
+                        if result["id"] not in existing_ids:
+                            results.append(result)
+                            if len(results) >= limit:
+                                break
+                
+                if filter_tags and filtered_count > 0:
+                    print(f"{Fore.YELLOW}ℹ️ คัดกรองออก {filtered_count} รายการที่ไม่ตรงกับแท็กที่กำหนด{Style.RESET_ALL}")
+                    logger.info(f"คัดกรองออก {filtered_count} รายการที่ไม่ตรงกับแท็กที่กำหนด")
+                
+                print(f"{Fore.GREEN}✅ ค้นหาสำเร็จ พบ {len(results)} คำแนะนำที่เกี่ยวข้อง{Style.RESET_ALL}")
+                logger.info(f"ค้นหาสำเร็จ พบ {len(results)} คำแนะนำที่เกี่ยวข้อง")
+                
+                # เรียงลำดับผลลัพธ์ตาม similarity_score
+                results.sort(key=lambda x: x["similarity_score"], reverse=True)
+                
+                # แสดงผลลัพธ์
+                if results:
+                    print(f"\n{Fore.CYAN}🔍 ผลลัพธ์การค้นหา:{Style.RESET_ALL}")
+                    for i, result in enumerate(results):
+                        tags_str = f", แท็ก: {', '.join(result['tags'])}" if result['tags'] else ""
+                        print(f"{i+1}. {Fore.GREEN}{result['title']}{Style.RESET_ALL} " + 
+                            f"(คะแนนความเหมือน: {Fore.YELLOW}{result['similarity_score']:.2f}{Style.RESET_ALL}{tags_str})")
+                else:
+                    print(f"{Fore.YELLOW}⚠️ ไม่พบผลลัพธ์สำหรับคำค้นหานี้{Style.RESET_ALL}")
+                
+                return results
+                
+            except Exception as e:
+                error_msg = f"เกิดข้อผิดพลาดในการค้นหา: {str(e)}"
+                logger.error(error_msg)
+                print(f"{Fore.RED}❌ {error_msg}{Style.RESET_ALL}")
+                
+                # ใช้การค้นหาแบบ fallback แทน
+                print(f"{Fore.YELLOW}ℹ️ ใช้การค้นหาแบบ fallback แทน{Style.RESET_ALL}")
+                return self._fallback_search_advices(corrected_query, keywords, limit)
+            
+        except Exception as e:
+            error_msg = f"เกิดข้อผิดพลาดในการค้นหา: {str(e)}"
+            logger.error(error_msg)
+            print(f"{Fore.RED}❌ {error_msg}{Style.RESET_ALL}")
+            
+            # ใช้การค้นหาแบบ fallback แทน
+            print(f"{Fore.YELLOW}ℹ️ ใช้การค้นหาแบบ fallback แทน{Style.RESET_ALL}")
+            return self._fallback_search_advices(corrected_query, keywords, limit)
+    
     def search_combined(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
         """
         ค้นหาข้อมูลแบบรวมทั้งอาชีพ คำแนะนำ และข้อมูลผู้ใช้
@@ -930,7 +1080,7 @@ class VectorSearch:
                     print(f"{Fore.YELLOW}⚠️ ไม่พบผลลัพธ์สำหรับคำค้นหานี้{Style.RESET_ALL}")
                 
                 return results
-                
+                    
             except Exception as e:
                 error_msg = f"เกิดข้อผิดพลาดในการค้นหา: {str(e)}"
                 logger.error(error_msg)

@@ -9,6 +9,7 @@ This module defines the routes for interacting with the AI.
 import os
 import uuid
 from typing import List, Dict, Any, Optional
+from datetime import datetime 
 from fastapi import APIRouter, HTTPException, Depends, Query, Path, Body, BackgroundTasks
 from pydantic import BaseModel
 
@@ -51,6 +52,18 @@ class ChatResponse(BaseModel):
     personality: PersonalityType
     user_context: Optional[Dict[str, Any]] = None
 
+# คลาสสำหรับ query_chat (เพิ่มใหม่)
+class ChatQuery(BaseModel):
+    text: str
+    user_id: Optional[str] = None
+    personality: PersonalityType = PersonalityType.FRIENDLY
+
+# คลาสสำหรับส่งคำตอบจาก query_chat (เพิ่มใหม่)
+class QueryChatResponse(BaseModel):
+    id: str
+    text: str
+    timestamp: str
+
 @router.post("/", response_model=ChatResponse)
 async def ask_question(
     request: ChatRequest,
@@ -87,10 +100,24 @@ async def ask_question(
         if request.use_combined_search:
             # ใช้การค้นหาแบบรวม
             search_results = vector_search.search_combined(request.query, limit=5)
+            
+            # เพิ่มคีย์ type ถ้าไม่มี
+            print("Search Results Structure:")
+            for result in search_results:
+                result["type"] = result.get("type", result.get("content", {}).get("type", "unknown"))
         else:
             # ใช้การค้นหาแบบแยกประเภท
             job_results = vector_search.search_jobs(request.query, limit=3)
             advice_results = vector_search.search_career_advices(request.query, limit=3)
+            
+            # เพิ่มคีย์ type ถ้าไม่มีในผลลัพธ์
+            for job in job_results:
+                if "type" not in job:
+                    job["type"] = "job"
+            
+            for advice in advice_results:
+                if "type" not in advice:
+                    advice["type"] = "advice"
             
             # รวมผลลัพธ์
             search_results = job_results + advice_results
@@ -174,3 +201,75 @@ async def get_user_chat_history(user_id: str = Path(..., description="รหั�
     # ดึงประวัติการสนทนา
     history = get_chat_history(user_id)
     return history
+
+@router.post("/query", response_model=QueryChatResponse)
+async def query_chat(query: ChatQuery):
+    """
+    ส่งคำถามไปยัง LLM และรับคำตอบกลับมา
+    
+    Args:
+        query: คำถามและบริบทต่างๆ
+        
+    Returns:
+        QueryChatResponse: คำตอบจาก LLM
+    """
+    try:
+        user_context = None
+        if query.user_id:
+            user = get_user(query.user_id)
+            if user:
+                user_context = user.dict()
+        
+        # ใช้ VectorSearch เพื่อค้นหาข้อมูลที่เกี่ยวข้อง
+        # ใช้ตัวแปร vector_search ที่สร้างไว้แล้วด้านบน แทนการสร้างใหม่
+        if vector_search is None:
+            raise HTTPException(status_code=500, detail="ระบบค้นหาข้อมูลไม่พร้อมใช้งาน")
+        
+        # ใช้การค้นหาแบบรวม
+        search_results = vector_search.search_combined(query.text, limit=5)
+        
+        # เพิ่มคีย์ type ถ้าไม่มี
+        for result in search_results:
+            if "type" not in result:
+                result["type"] = result.get("type", "unknown")
+        
+        # ส่งคำถามพร้อมผลการค้นหาไปยัง LLM
+        response = await chat_with_combined_context(
+            query=query.text,
+            search_results=search_results,
+            user_context=user_context,
+            personality=query.personality
+        )
+        
+        # สร้างประวัติการสนทนา
+        chat_id = str(uuid.uuid4())
+        timestamp = datetime.now().isoformat()
+        
+        chat_history = ChatHistory(
+            id=chat_id,
+            user_id=query.user_id,
+            timestamp=timestamp,
+            messages=[
+                ChatMessage(role="user", content=query.text),
+                ChatMessage(role="assistant", content=response)
+            ]
+        )
+        
+        # บันทึกประวัติการสนทนา (ข้ามหากเกิดข้อผิดพลาด)
+        try:
+            save_chat_history(chat_history)
+        except Exception as e:
+            logger.error(f"เกิดข้อผิดพลาดในการบันทึกประวัติการสนทนา: {str(e)}")
+        
+        return QueryChatResponse(
+            id=chat_id,
+            text=response,
+            timestamp=timestamp
+        )
+    
+    except Exception as e:
+        logger.error(f"เกิดข้อผิดพลาดในการส่งคำถามไปยัง LLM: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"เกิดข้อผิดพลาดในการส่งคำถามไปยัง LLM: {str(e)}"
+        )

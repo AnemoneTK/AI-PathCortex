@@ -1,15 +1,9 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Pydantic models for the Career AI Advisor API.
+# src/api/models.py
 
-This module defines the data models used in the API.
-"""
-
-from typing import List, Dict, Any, Optional, Set
-from pydantic import BaseModel, Field, constr, validator
-from datetime import datetime, date
-import uuid
+from typing import List, Dict, Optional, Any, Union
+from pydantic import BaseModel, Field, field_validator
+from datetime import datetime
+from uuid import uuid4
 
 from src.utils.config import PersonalityType, EducationStatus
 
@@ -28,17 +22,6 @@ class QueryResult(BaseModel):
     job_title: str = Field(..., description="ชื่อตำแหน่งงาน")
     type: str = Field(..., description="ประเภทของข้อมูล (description, responsibilities, skills)")
     similarity: float = Field(..., description="คะแนนความใกล้เคียง")
-
-class ChatRequest(BaseModel):
-    """คำขอสำหรับการสนทนา"""
-    query: str = Field(..., description="คำถามจากผู้ใช้")
-    user_id: Optional[str] = Field(None, description="รหัสผู้ใช้ (ถ้ามี)")
-    personality: PersonalityType = Field(PersonalityType.FRIENDLY, description="รูปแบบบุคลิกของ AI ที่ต้องการ")
-
-class ChatResponse(BaseModel):
-    """การตอบกลับการสนทนา"""
-    answer: str = Field(..., description="คำตอบจากระบบ")
-    sources: List[Dict[str, Any]] = Field([], description="แหล่งข้อมูลที่ใช้")
 
 #############################
 # ข้อมูลอาชีพ
@@ -76,20 +59,20 @@ class JobSummary(BaseModel):
 #############################
 
 class UserSkill(BaseModel):
-    """ข้อมูลทักษะของผู้ใช้"""
+    """ทักษะของผู้ใช้"""
     name: str = Field(..., description="ชื่อทักษะ")
     proficiency: int = Field(1, ge=1, le=5, description="ระดับความชำนาญ (1-5)")
 
 class UserProject(BaseModel):
-    """ข้อมูลโปรเจกต์ของผู้ใช้"""
+    """โปรเจกต์ของผู้ใช้"""
     name: str = Field(..., description="ชื่อโปรเจกต์")
-    description: str = Field(..., description="คำอธิบายโปรเจกต์")
+    description: Optional[str] = Field(None, description="คำอธิบายโปรเจกต์")
     technologies: List[str] = Field([], description="เทคโนโลยีที่ใช้")
     role: Optional[str] = Field(None, description="บทบาทในโปรเจกต์")
     url: Optional[str] = Field(None, description="URL ของโปรเจกต์ (ถ้ามี)")
 
 class UserWorkExperience(BaseModel):
-    """ข้อมูลประสบการณ์ทำงานของผู้ใช้"""
+    """ประสบการณ์ทำงานของผู้ใช้"""
     title: str = Field(..., description="ตำแหน่งงาน")
     company: str = Field(..., description="ชื่อบริษัท")
     start_date: str = Field(..., description="วันที่เริ่มงาน (YYYY-MM)")
@@ -100,7 +83,7 @@ class UserCreate(BaseModel):
     """ข้อมูลสำหรับสร้างผู้ใช้ใหม่"""
     name: str = Field(..., description="ชื่อผู้ใช้")
     institution: Optional[str] = Field(None, description="สถาบันการศึกษา")
-    education_status: EducationStatus = Field(EducationStatus.STUDENT, description="สถานะการศึกษา")
+    education_status: Optional[EducationStatus] = Field(EducationStatus.STUDENT, description="สถานะการศึกษา")
     year: Optional[int] = Field(None, description="ชั้นปีที่กำลังศึกษา (ถ้ามี)")
     skills: List[UserSkill] = Field([], description="ทักษะที่มี")
     programming_languages: List[str] = Field([], description="ภาษาโปรแกรมที่ใช้ได้")
@@ -125,7 +108,7 @@ class User(BaseModel):
     id: str = Field(..., description="รหัสผู้ใช้")
     name: str = Field(..., description="ชื่อผู้ใช้")
     institution: Optional[str] = Field(None, description="สถาบันการศึกษา")
-    education_status: EducationStatus = Field(EducationStatus.STUDENT, description="สถานะการศึกษา")
+    education_status: Optional[EducationStatus] = Field(EducationStatus.STUDENT, description="สถานะการศึกษา")
     year: Optional[int] = Field(None, description="ชั้นปีที่กำลังศึกษา")
     skills: List[UserSkill] = Field([], description="ทักษะที่มี")
     programming_languages: List[str] = Field([], description="ภาษาโปรแกรมที่ใช้ได้")
@@ -136,7 +119,9 @@ class User(BaseModel):
     created_at: str = Field(..., description="วันที่สร้าง")
     updated_at: str = Field(..., description="วันที่อัปเดตล่าสุด")
 
-    @validator('created_at', 'updated_at', pre=True, always=True)
+    # เปลี่ยนจาก @validator เป็น @field_validator และเพิ่ม @classmethod
+    @field_validator('created_at', 'updated_at', mode='before')
+    @classmethod
     def default_datetime(cls, v):
         return v or datetime.now().isoformat()
 
@@ -145,7 +130,7 @@ class UserSummary(BaseModel):
     id: str = Field(..., description="รหัสผู้ใช้") 
     name: str = Field(..., description="ชื่อผู้ใช้")
     institution: Optional[str] = Field(None, description="สถาบันการศึกษา")
-    education_status: EducationStatus = Field(..., description="สถานะการศึกษา")
+    education_status: Optional[EducationStatus] = Field(None, description="สถานะการศึกษา")
 
 class ResumeUploadResponse(BaseModel):
     """ผลลัพธ์การอัปโหลดไฟล์ Resume"""
@@ -172,29 +157,85 @@ class ResumeAnalysisResponse(BaseModel):
     message: str = Field(..., description="ข้อความแสดงผล")
 
 #############################
-# ข้อมูลประวัติการสนทนา
+# ข้อมูลการค้นหา
 #############################
+
+class SearchResult(BaseModel):
+    """ผลลัพธ์การค้นหา"""
+    id: str = Field(..., description="รหัสผลลัพธ์")
+    title: str = Field(..., description="ชื่อผลลัพธ์")
+    similarity_score: float = Field(..., description="คะแนนความเหมือน")
+    type: str = Field(..., description="ประเภทของผลลัพธ์ (job, advice, user)")
+    content: Dict[str, Any] = Field({}, description="เนื้อหาของผลลัพธ์")
+
+class JobSearchResult(BaseModel):
+    """ผลลัพธ์การค้นหาอาชีพ"""
+    id: str = Field(..., description="รหัสอาชีพ")
+    title: str = Field(..., description="ชื่อตำแหน่งงาน")
+    description: str = Field(..., description="คำอธิบายอาชีพ")
+    responsibilities: List[str] = Field([], description="ความรับผิดชอบ")
+    skills: List[str] = Field([], description="ทักษะที่ต้องการ")
+    salary_ranges: List[Dict[str, Any]] = Field([], description="ข้อมูลเงินเดือน")
+    education_requirements: List[str] = Field([], description="ข้อกำหนดด้านการศึกษา")
+    similarity_score: float = Field(..., description="คะแนนความเหมือน")
+
+class AdviceSearchResult(BaseModel):
+    """ผลลัพธ์การค้นหาคำแนะนำอาชีพ"""
+    id: str = Field(..., description="รหัสคำแนะนำ")
+    title: str = Field(..., description="หัวข้อคำแนะนำ")
+    text_preview: str = Field(..., description="ตัวอย่างเนื้อหา")
+    tags: List[str] = Field([], description="แท็ก")
+    source: str = Field("", description="แหล่งที่มา")
+    url: str = Field("", description="URL")
+    similarity_score: float = Field(..., description="คะแนนความเหมือน")
+
+class JobSearchQuery(BaseModel):
+    """คำค้นหาอาชีพ"""
+    query: str = Field(..., description="คำค้นหา")
+    filters: Optional[Dict[str, Any]] = Field(None, description="ตัวกรอง")
+    limit: int = Field(5, description="จำนวนผลลัพธ์")
+
+class AdviceSearchQuery(BaseModel):
+    """คำค้นหาคำแนะนำอาชีพ"""
+    query: str = Field(..., description="คำค้นหา")
+    filter_tags: Optional[List[str]] = Field(None, description="กรองตามแท็ก")
+    limit: int = Field(5, description="จำนวนผลลัพธ์")
+
+class CombinedSearchQuery(BaseModel):
+    """คำค้นหาแบบรวม"""
+    query: str = Field(..., description="คำค้นหา")
+    limit: int = Field(5, description="จำนวนผลลัพธ์")
+
+#############################
+# ข้อมูลการสนทนา
+#############################
+
+class ChatMessage(BaseModel):
+    """ข้อความการสนทนา"""
+    role: str = Field(..., description="บทบาท (user, assistant)")
+    content: str = Field(..., description="เนื้อหาข้อความ")
+    timestamp: Optional[str] = Field(None, description="เวลาที่ส่งข้อความ")
+    
+    def __init__(self, **data):
+        if 'timestamp' not in data:
+            data['timestamp'] = datetime.now().isoformat()
+        super().__init__(**data)
+
+class ChatRequest(BaseModel):
+    """คำขอการสนทนา"""
+    user_id: Optional[str] = Field(None, description="รหัสผู้ใช้ (ถ้ามี)")
+    message: str = Field(..., description="ข้อความ")
+    personality: PersonalityType = Field(PersonalityType.FRIENDLY, description="บุคลิกของ AI")
 
 class ChatHistory(BaseModel):
     """ประวัติการสนทนา"""
-    id: str = Field(..., description="รหัสการสนทนา")
+    id: str = Field(default_factory=lambda: str(uuid4()), description="รหัสการสนทนา")
     user_id: Optional[str] = Field(None, description="รหัสผู้ใช้ (ถ้ามี)")
-    query: str = Field(..., description="คำถามจากผู้ใช้")
-    answer: str = Field(..., description="คำตอบจากระบบ")
-    personality: PersonalityType = Field(PersonalityType.FRIENDLY, description="รูปแบบบุคลิกที่ใช้")
-    sources: List[Dict[str, Any]] = Field([], description="แหล่งข้อมูลที่ใช้")
-    timestamp: str = Field(..., description="เวลาที่สนทนา")
+    messages: List[ChatMessage] = Field([], description="ข้อความในการสนทนา")
+    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="เวลาที่สนทนา")
 
-    @validator('id', pre=True, always=True)
-    def default_id(cls, v):
-        return v or str(uuid.uuid4())
-
-    @validator('timestamp', pre=True, always=True)
-    def default_timestamp(cls, v):
-        return v or datetime.now().isoformat()
-
-class ChatHistoryResponse(BaseModel):
-    """ผลลัพธ์การดึงประวัติการสนทนา"""
-    user_id: Optional[str] = Field(None, description="รหัสผู้ใช้ (ถ้ามี)")
-    history: List[ChatHistory] = Field([], description="ประวัติการสนทนา")
-    count: int = Field(..., description="จำนวนประวัติการสนทนา")
+class ChatResponse(BaseModel):
+    """การตอบกลับการสนทนา"""
+    chat_id: str = Field(..., description="รหัสการสนทนา")
+    message: str = Field(..., description="ข้อความตอบกลับ")
+    search_results: List[Union[JobSearchResult, AdviceSearchResult]] = Field([], description="ผลลัพธ์การค้นหาที่เกี่ยวข้อง")

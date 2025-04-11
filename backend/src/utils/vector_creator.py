@@ -752,14 +752,14 @@ if __name__ == "__main__":
             # โหลดข้อมูลคำแนะนำ
             advice_data = self._load_career_advice_data()
             
-            # โหลดข้อมูลผู้ใช้ (จะเพิ่มในส่วนนี้)
+            # โหลดข้อมูลผู้ใช้
             user_data = self._load_user_data()
             
-            if not job_data and not advice_data:
-                result["error"] = "ไม่พบข้อมูลอาชีพและคำแนะนำ"
+            if not job_data and not advice_data and not user_data:
+                result["error"] = "ไม่พบข้อมูลอาชีพ, คำแนะนำ และผู้ใช้"
                 return result
             
-            print(f"{Fore.CYAN}🔄 กำลังสร้าง embeddings แบบรวมข้อมูล (อาชีพ {len(job_data)} รายการ, คำแนะนำ {len(advice_data)} รายการ, ผู้ใช้ {len(user_data)} รายการ)...{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}🔄 กำลังสร้าง embeddings แบบรวมข้อมูล (อาชีพ {len(job_data)} รายการ, คำแนะนำ {len(advice_data)} รายการ, ผู้ใช้ {len(user_data)} รายการ)...")
             
             # เตรียมข้อมูลสำหรับสร้าง embeddings
             combined_texts = []
@@ -772,7 +772,7 @@ if __name__ == "__main__":
                 if "id" not in job:
                     continue
                     
-                job_text = self._prepare_text_for_embedding(job)
+                job_text = self._prepare_job_text_for_embedding(job)
                 job_id = f"job_{job['id']}"
                 
                 combined_texts.append(job_text)
@@ -812,18 +812,18 @@ if __name__ == "__main__":
                 return result
             
             # สร้าง embeddings
-            print(f"{Fore.CYAN}🧠 กำลังสร้าง embeddings จำนวน {len(combined_texts)} รายการ...{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}🧠 กำลังสร้าง embeddings จำนวน {len(combined_texts)} รายการ...")
             
             if self.embedding_model:
                 # ใช้โมเดลจริง
                 embeddings = self.embedding_model.encode(combined_texts, show_progress_bar=True)
             else:
                 # ใช้การจำลอง
-                print(f"{Fore.YELLOW}⚠️ ไม่พบโมเดล embedding จะใช้การจำลอง{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}⚠️ ไม่พบโมเดล embedding จะใช้การจำลอง")
                 embeddings = np.array([self._get_embedding(text) for text in combined_texts])
             
             # สร้าง FAISS index
-            print(f"{Fore.CYAN}📊 กำลังสร้าง FAISS index...{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}📊 กำลังสร้าง FAISS index...")
             
             dimension = embeddings.shape[1]
             index = faiss.IndexFlatL2(dimension)
@@ -840,27 +840,22 @@ if __name__ == "__main__":
             
             # บันทึก FAISS index
             combined_index_path = combined_vector_dir / "faiss_index.bin"
-            print(f"{Fore.CYAN}💾 กำลังบันทึก FAISS index ไปที่ {combined_index_path}...{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}💾 กำลังบันทึก FAISS index ไปที่ {combined_index_path}...")
             faiss.write_index(index, str(combined_index_path))
             
             # บันทึก metadata
             combined_metadata_path = combined_vector_dir / "metadata.json"
-            print(f"{Fore.CYAN}💾 กำลังบันทึก metadata ไปที่ {combined_metadata_path}...{Style.RESET_ALL}")
-            metadata = {
-                "item_ids": combined_ids,
-                "item_types": combined_types,
-                "item_ids_to_index": combined_ids_to_index,
-                "item_data": []
-            }
+            print(f"{Fore.CYAN}💾 กำลังบันทึก metadata ไปที่ {combined_metadata_path}...")
             
             # ปรับข้อมูลให้มีขนาดเล็กลงสำหรับเก็บใน metadata
+            simplified_items = []
             for i, item in enumerate(combined_data):
                 item_type = combined_types[i]
                 simplified_item = {"id": combined_ids[i], "type": item_type}
                 
                 if item_type == "job":
                     simplified_item.update({
-                        "title": item.get("titles", [""])[0] if isinstance(item.get("titles"), list) else "",
+                        "title": item.get("titles", [""])[0] if isinstance(item.get("titles"), list) and item.get("titles") else "",
                         "description": item.get("description", "")[:300] + "..." if len(item.get("description", "")) > 300 else item.get("description", ""),
                         "responsibilities": item.get("responsibilities", [])[:3],
                         "skills": item.get("skills", [])[:5],
@@ -879,16 +874,23 @@ if __name__ == "__main__":
                         "name": item.get("name", ""),
                         "institution": item.get("institution", ""),
                         "education_status": item.get("education_status", ""),
-                        "skills": [skill.get("name") for skill in item.get("skills", [])][:5],
-                        "programming_languages": item.get("programming_languages", [])[:5]
+                        "skills": [skill.get("name") for skill in item.get("skills", [])][:5] if isinstance(item.get("skills"), list) else [],
+                        "programming_languages": item.get("programming_languages", [])[:5] if isinstance(item.get("programming_languages"), list) else []
                     })
                 
-                metadata["item_data"].append(simplified_item)
+                simplified_items.append(simplified_item)
+            
+            metadata = {
+                "item_ids": combined_ids,
+                "item_types": combined_types,
+                "item_ids_to_index": combined_ids_to_index,
+                "item_data": simplified_items
+            }
             
             with open(combined_metadata_path, 'w', encoding='utf-8') as f:
                 json.dump(metadata, f, ensure_ascii=False, indent=2)
             
-            print(f"{Fore.GREEN}✅ สร้าง embeddings แบบรวมข้อมูลสำเร็จ: {len(combined_ids)} vectors{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}✅ สร้าง embeddings แบบรวมข้อมูลสำเร็จ: {len(combined_ids)} vectors")
             
             result["success"] = True
             result["vectors_count"] = len(combined_ids)
@@ -896,10 +898,10 @@ if __name__ == "__main__":
             return result
             
         except Exception as e:
-            print(f"{Fore.RED}❌ เกิดข้อผิดพลาดในการสร้าง embeddings แบบรวมข้อมูล: {str(e)}{Style.RESET_ALL}")
+            print(f"{Fore.RED}❌ เกิดข้อผิดพลาดในการสร้าง embeddings แบบรวมข้อมูล: {str(e)}")
             result["error"] = str(e)
             return result
-
+        
     def _prepare_user_text_for_embedding(self, user: Dict[str, Any]) -> str:
         """
         เตรียมข้อความจากข้อมูลผู้ใช้สำหรับสร้าง embedding
@@ -939,10 +941,13 @@ if __name__ == "__main__":
         if "skills" in user and user["skills"]:
             skills_text = []
             for skill in user["skills"]:
-                skill_name = skill.get("name", "")
-                skill_level = skill.get("proficiency", 0)
-                if skill_name:
-                    skills_text.append(f"{skill_name} (ระดับ {skill_level}/5)")
+                if isinstance(skill, dict):
+                    skill_name = skill.get("name", "")
+                    skill_level = skill.get("proficiency", 0)
+                    if skill_name:
+                        skills_text.append(f"{skill_name} (ระดับ {skill_level}/5)")
+                elif isinstance(skill, str):
+                    skills_text.append(skill)
             
             if skills_text:
                 text_parts.append(f"ทักษะ: {', '.join(skills_text)}")
@@ -1018,21 +1023,21 @@ if __name__ == "__main__":
                     
                     # ตรวจสอบโครงสร้างข้อมูล
                     if isinstance(users_data, list):
-                        print(f"{Fore.GREEN}✅ โหลดข้อมูลผู้ใช้สำเร็จ: {len(users_data)} รายการ{Style.RESET_ALL}")
+                        print(f"{Fore.GREEN}✅ โหลดข้อมูลผู้ใช้สำเร็จ: {len(users_data)} รายการ")
                         return users_data
                     else:
-                        print(f"{Fore.YELLOW}⚠️ รูปแบบข้อมูลผู้ใช้ไม่ถูกต้อง ควรเป็นรายการ (List){Style.RESET_ALL}")
+                        print(f"{Fore.YELLOW}⚠️ รูปแบบข้อมูลผู้ใช้ไม่ถูกต้อง ควรเป็นรายการ (List)")
                         return []
             else:
-                print(f"{Fore.YELLOW}⚠️ ไม่พบไฟล์ข้อมูลผู้ใช้: {users_file}{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}⚠️ ไม่พบไฟล์ข้อมูลผู้ใช้: {users_file}")
                 return []
         except Exception as e:
-            print(f"{Fore.RED}❌ เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ใช้: {str(e)}{Style.RESET_ALL}")
+            print(f"{Fore.RED}❌ เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ใช้: {str(e)}")
             return []
 
     def create_all_embeddings(self) -> Dict[str, Any]:
         """
-        สร้าง embeddings ทั้งหมด ทั้งข้อมูลอาชีพและคำแนะนำอาชีพ
+        สร้าง embeddings ทั้งหมด ทั้งข้อมูลอาชีพและคำแนะนำอาชีพ และข้อมูลรวม
         
         Returns:
             ผลลัพธ์ของการสร้าง embeddings
