@@ -35,9 +35,10 @@ def save_user(user: User) -> bool:
         # สร้างพาธไฟล์
         user_file = os.path.join(USERS_DIR, f"{user.id}.json")
         
-        # บันทึกข้อมูลลงไฟล์
+        # แปลงเป็น dict แล้วบันทึกด้วย json.dump แทนการใช้ .json() method
+        user_dict = user.dict()
         with open(user_file, 'w', encoding='utf-8') as f:
-            f.write(user.json(ensure_ascii=False, indent=2))
+            json.dump(user_dict, f, ensure_ascii=False, indent=2)
         
         logger.info(f"บันทึกข้อมูลผู้ใช้ {user.id} สำเร็จ")
         return True
@@ -359,9 +360,10 @@ def save_chat_history(chat_history: ChatHistory) -> bool:
             os.makedirs(chat_dir, exist_ok=True)
             chat_file = os.path.join(chat_dir, f"{chat_history.id}.json")
         
-        # บันทึกข้อมูลลงไฟล์
+        # แปลงเป็น dict แล้วบันทึกด้วย json.dump แทนการใช้ .json() method
+        chat_dict = chat_history.dict()
         with open(chat_file, 'w', encoding='utf-8') as f:
-            f.write(chat_history.json(ensure_ascii=False, indent=2))
+            json.dump(chat_dict, f, ensure_ascii=False, indent=2)
         
         logger.info(f"บันทึกประวัติการสนทนา {chat_history.id} สำเร็จ")
         return True
