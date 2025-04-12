@@ -314,40 +314,24 @@ const UserRegistration = () => {
         })),
         work_experiences: [], // ยังไม่มีข้อมูลประสบการณ์ทำงาน
       };
-
+  
       // Create FormData for file upload
       const formData = new FormData();
-
-      // ส่งข้อมูลในรูปแบบที่ API ต้องการ
-      Object.entries(apiUserData).forEach(([key, value]) => {
-        if (
-          key === "skills" ||
-          key === "projects" ||
-          key === "work_experiences"
-        ) {
-          // สำหรับ arrays ของ objects ให้ส่งเป็น JSON string
-          formData.append(key, JSON.stringify(value));
-        } else if (Array.isArray(value)) {
-          // สำหรับ array ธรรมดา ให้ส่งแต่ละรายการแยกกัน
-          value.forEach((item) => {
-            formData.append(`${key}[]`, item);
-          });
-        } else {
-          formData.append(key, value);
-        }
-      });
-
+      
+      // แปลงข้อมูลทั้งหมดเป็น JSON string และเพิ่มเข้า FormData
+      formData.append("user_data", JSON.stringify(apiUserData));
+  
       // Add resume file if exists
       if (userData.resume) {
         formData.append("resume", userData.resume);
       }
-
-      // Send to backend API
-      const response = await fetch("http://localhost:8000/users/", {
+  
+      // Send to backend API - ส่งไปที่ /registration/ แทน /users/
+      const response = await fetch("http://localhost:8000/registration/", {
         method: "POST",
         body: formData,
       });
-
+  
       if (response.ok) {
         // Move to success step
         setCurrentStep(6);

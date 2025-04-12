@@ -242,13 +242,13 @@ def list_users() -> List[Dict[str, Any]]:
         logger.error(f"เกิดข้อผิดพลาดในการดึงรายชื่อผู้ใช้: {str(e)}")
         return []
 
-def save_resume(user_id: str, file: BinaryIO, filename: str) -> Optional[str]:
+def save_resume(user_id: str, file_content, filename: str) -> Optional[str]:
     """
     บันทึกไฟล์ Resume
     
     Args:
         user_id: รหัสผู้ใช้
-        file: ไฟล์ Resume
+        file_content: เนื้อหาของไฟล์ (bytes)
         filename: ชื่อไฟล์
         
     Returns:
@@ -275,7 +275,13 @@ def save_resume(user_id: str, file: BinaryIO, filename: str) -> Optional[str]:
         
         # บันทึกไฟล์
         with open(file_path, 'wb') as f:
-            shutil.copyfileobj(file, f)
+            # ตรวจสอบว่าข้อมูลเป็น bytes หรือ BinaryIO
+            if hasattr(file_content, 'read'):
+                # กรณีเป็น BinaryIO (file-like object)
+                shutil.copyfileobj(file_content, f)
+            else:
+                # กรณีเป็น bytes
+                f.write(file_content)
         
         # อัปเดตข้อมูลผู้ใช้
         user_dict = user.dict()
@@ -295,7 +301,7 @@ def save_resume(user_id: str, file: BinaryIO, filename: str) -> Optional[str]:
     except Exception as e:
         logger.error(f"เกิดข้อผิดพลาดในการบันทึกไฟล์ Resume: {str(e)}")
         return None
-
+    
 def get_resume_path(user_id: str) -> Optional[str]:
     """
     ดึงพาธของไฟล์ Resume

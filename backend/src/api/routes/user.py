@@ -7,12 +7,15 @@ This module defines the routes for user management.
 """
 
 import os
+import json
 import uuid
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Depends, Query, Path, File, UploadFile, Form, BackgroundTasks
 from fastapi.responses import FileResponse
 
-from src.api.models import User, UserCreate, UserUpdate, UserSummary, ResumeUploadResponse
+# เพิ่มการนำเข้า EducationStatus จาก config
+from src.utils.config import EducationStatus
+from src.api.models import User, UserCreate, UserUpdate, UserSummary, ResumeUploadResponse, UserSkill, UserProject, UserWorkExperience
 from src.utils.storage import (
     create_user, get_user, update_user, delete_user, list_users, 
     save_resume, get_resume_path, update_user_to_combined_file, 
@@ -45,7 +48,7 @@ async def get_users():
 async def create_new_user(
     name: str = Form(...),
     institution: Optional[str] = Form(None),
-    education_status: EducationStatus = Form(EducationStatus.STUDENT),
+    education_status: str = Form("student"),  # รับเป็น string แทน Enum
     year: int = Form(1),
     skills: str = Form("[]"),  # JSON string
     programming_languages: List[str] = Form([]),
@@ -54,27 +57,68 @@ async def create_new_user(
     work_experiences: str = Form("[]"),  # JSON string
     resume: Optional[UploadFile] = File(None)
 ):
+    """
+    สร้างผู้ใช้ใหม่
+    
+    Args:
+        name: ชื่อผู้ใช้
+        institution: สถาบันการศึกษา
+        education_status: สถานะการศึกษา
+        year: ชั้นปี
+        skills: ทักษะในรูปแบบ JSON string
+        programming_languages: ภาษาโปรแกรม
+        tools: เครื่องมือ
+        projects: โปรเจกต์ในรูปแบบ JSON string
+        work_experiences: ประสบการณ์ทำงานในรูปแบบ JSON string
+        resume: ไฟล์ resume
+        
+    Returns:
+        User: ข้อมูลผู้ใช้ที่สร้างแล้ว
+    """
     try:
-        # Parse JSON strings
+        # แปลง education_status เป็น Enum
+        edu_status = EducationStatus.STUDENT
+        if education_status == "graduate":
+            edu_status = EducationStatus.GRADUATE
+        elif education_status == "working":
+            edu_status = EducationStatus.WORKING
+        
+        # แปลง JSON strings
         skills_data = json.loads(skills)
         projects_data = json.loads(projects)
         work_experiences_data = json.loads(work_experiences)
         
-        # Convert to appropriate model objects
-        skills_objects = [UserSkill(**skill) for skill in skills_data]
-        projects_objects = [UserProject(**project) for project in projects_data]
+        # แปลงทักษะให้เป็นรูปแบบที่ถูกต้อง
+        skills_objects = []
+        for skill in skills_data:
+            if isinstance(skill, dict):
+                skills_objects.append(UserSkill(**skill))
+            elif isinstance(skill, str):
+                skills_objects.append(UserSkill(name=skill, proficiency=4))
         
-        # Create UserCreate object
+        # แปลงโปรเจกต์ให้เป็นรูปแบบที่ถูกต้อง
+        projects_objects = []
+        for project in projects_data:
+            if isinstance(project, dict):
+                projects_objects.append(UserProject(**project))
+        
+        # แปลงประสบการณ์ทำงานให้เป็นรูปแบบที่ถูกต้อง
+        work_experiences_objects = []
+        for work in work_experiences_data:
+            if isinstance(work, dict):
+                work_experiences_objects.append(UserWorkExperience(**work))
+        
+        # สร้าง UserCreate object
         user_data = UserCreate(
             name=name,
             institution=institution,
-            education_status=education_status,
+            education_status=edu_status,
             year=year,
             skills=skills_objects,
             programming_languages=programming_languages,
             tools=tools,
             projects=projects_objects,
-            work_experiences=work_experiences_data
+            work_experiences=work_experiences_objects
         )
         
         user = create_user(user_data)
@@ -83,9 +127,13 @@ async def create_new_user(
         
         # บันทึก resume ถ้ามี
         if resume:
-            resume_path = await save_resume(user.id, resume.file, resume.filename)
+            content = await resume.read()
+            resume_path = save_resume(user.id, content, resume.filename)
             if resume_path:
                 logger.info(f"บันทึกไฟล์ Resume สำหรับผู้ใช้ {user.id} ที่ {resume_path}")
+        
+        # อัปเดตข้อมูลผู้ใช้ในไฟล์รวม
+        update_user_to_combined_file(user)
         
         return user
         
@@ -95,6 +143,7 @@ async def create_new_user(
     except Exception as e:
         logger.error(f"เกิดข้อผิดพลาดในการสร้างผู้ใช้: {str(e)}")
         raise HTTPException(status_code=500, detail=f"เกิดข้อผิดพลาดในการสร้างผู้ใช้: {str(e)}")
+
 
 @router.patch("/{user_id}", response_model=User)
 async def update_user_info(
