@@ -60,7 +60,9 @@ class VectorSearch:
         self.resume_keywords = set([
             "resume", "เรซูเม่", "เรซูเม", "cv", "ประวัติ", "สมัครงาน", "สัมภาษณ์",
             "interview", "application", "portfolio", "พอร์ตโฟลิโอ", "job hunt",
-            "career", "อาชีพ", "การเขียน", "writing", "template", "แม่แบบ", "ตัวอย่าง"
+            "career", "อาชีพ", "การเขียน", "writing", "template", "แม่แบบ", "ตัวอย่าง",
+            "ประวัติย่อ", "ใบสมัคร", "ประวัติการทำงาน", "โปรไฟล์", "profile",
+    "cover letter", "จดหมายสมัครงาน", "การเตรียมตัว", "preparation"
         ])
         
         # คำที่เกี่ยวกับผู้ใช้หรือการค้นหาผู้ใช้
@@ -283,6 +285,10 @@ class VectorSearch:
             if query_term.lower() in corrected_query.lower():
                 keywords.append(query_term)
         
+        for resume_term in self.resume_keywords:
+            if resume_term.lower() in corrected_query.lower():
+                keywords.append(resume_term)
+
         # ถ้าไม่พบคำสำคัญ ให้ใช้คำค้นหาที่ปรับปรุงแล้วเป็นคำสำคัญ
         if not keywords:
             # ตัดคำถามออก
@@ -920,7 +926,7 @@ class VectorSearch:
         Args:
             query: คำค้นหา
             limit: จำนวนผลลัพธ์ที่ต้องการ
-                
+                    
         Returns:
             รายการผลลัพธ์การค้นหาที่เกี่ยวข้อง
         """
@@ -930,15 +936,15 @@ class VectorSearch:
         # ปรับปรุงคำค้นหาและแยกคำสำคัญ
         corrected_query, keywords = self._normalize_query(query)
         
-        # ระบุประเภทคำถาม (ปรับการลำดับความสำคัญของประเภทข้อมูล)
-        query_type = self._identify_query_type(query, keywords)
+        # ระบุประเภทคำถาม (รองรับหลายประเภท)
+        query_types = self._identify_query_type(query, keywords)
         
         if corrected_query != query:
             print(f"{Fore.YELLOW}ℹ️ คำค้นหาที่ปรับปรุง: \"{corrected_query}\"{Style.RESET_ALL}")
             print(f"{Fore.YELLOW}ℹ️ คำสำคัญที่พบ: {', '.join(keywords)}{Style.RESET_ALL}")
             logger.info(f"คำค้นหาที่ปรับปรุง: \"{corrected_query}\", คำสำคัญที่พบ: {', '.join(keywords)}")
         
-        print(f"{Fore.CYAN}🔍 ประเภทคำถาม: {query_type}{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}🔍 ประเภทคำถาม: {', '.join(query_types)}{Style.RESET_ALL}")
         
         # ตรวจสอบว่า index แบบรวมมีอยู่จริง
         if not os.path.exists(self.combined_index_file) or not os.path.exists(self.combined_metadata_file):
@@ -946,19 +952,27 @@ class VectorSearch:
             logger.warning(warning_msg)
             print(f"{Fore.YELLOW}⚠️ {warning_msg}{Style.RESET_ALL}")
             
-            # ถ้าเป็นคำถามเกี่ยวกับผู้ใช้
-            if query_type == "user":
+            # ถ้าเป็นคำถามหลายประเภท ต้องจัดลำดับความสำคัญ
+            if "resume" in query_types and any(t in query_types for t in ["job", "frontend", "backend", "data"]):
+                # คำถามเกี่ยวกับทั้งอาชีพและ resume
+                advice_results = self.search_career_advices(query, limit // 2)
+                job_results = self.search_jobs(query, limit // 2)
+                
+                # รวมผลลัพธ์และจัดลำดับตามคะแนน
+                combined_results = advice_results + job_results
+                combined_results.sort(key=lambda x: x.get("similarity_score", 0), reverse=True)
+                return combined_results[:limit]
+                
+            elif "user" in query_types:
                 # ค้นหาผู้ใช้เป็นหลัก
                 users = self._fallback_search_users(corrected_query, keywords, limit)
                 return users
             
-            # ถ้าเป็นคำถามเกี่ยวกับ resume หรือการสมัครงาน
-            elif query_type == "resume":
+            elif "resume" in query_types:
                 # ค้นหาคำแนะนำเป็นหลัก
                 advices = self.search_career_advices(query, limit)
                 return advices
             
-            # ถ้าเป็นคำถามเกี่ยวกับอาชีพ
             else:
                 # ค้นหาอาชีพเป็นหลัก
                 jobs = self.search_jobs(query, limit)
@@ -1106,33 +1120,62 @@ class VectorSearch:
                 return self._fallback_search_users(corrected_query, keywords, limit)
             else:
                 return self.search_jobs(query, limit)
-    def _identify_query_type(self, query: str, keywords: List[str]) -> str:
+    def _identify_query_type(self, query: str, keywords: List[str]) -> List[str]:
         """
         ระบุประเภทของคำถามว่าเกี่ยวข้องกับอาชีพ คำแนะนำ หรือผู้ใช้
+        และสามารถระบุได้หลายประเภทในคำถามเดียว
         
         Args:
             query: คำค้นหา
             keywords: คำสำคัญที่สกัดได้จากคำค้นหา
             
         Returns:
-            str: ประเภทของคำถาม ("job", "resume", "user")
+            List[str]: รายการประเภทของคำถาม ["job", "resume", "user", "data", "salary", etc.]
         """
+        query_types = []
+        
         # นับจำนวนคำที่เกี่ยวข้องกับแต่ละประเภท
         job_count = sum(1 for kw in keywords if kw.lower() in self.tech_keywords or kw.lower() in self.job_query_keywords)
         resume_count = sum(1 for kw in keywords if kw.lower() in self.resume_keywords)
         user_count = sum(1 for kw in keywords if kw.lower() in self.user_keywords)
         
-        # คำถามเกี่ยวกับผู้ใช้มีคำสำคัญเฉพาะ
-        if user_count > 0 and (user_count >= job_count and user_count >= resume_count):
-            return "user"
+        # ตรวจสอบเรื่องงาน
+        if job_count > 0:
+            query_types.append("job")
+            
+            # ตรวจสอบว่าเป็นสายงานเฉพาะหรือไม่
+            job_categories = {
+                "frontend": ["frontend", "front-end", "ui", "ux", "web developer"],
+                "backend": ["backend", "back-end", "api", "server"],
+                "fullstack": ["fullstack", "full stack", "full-stack"],
+                "data": ["data", "scientist", "analyst", "analytics", "bi", "database"],
+                "devops": ["devops", "cloud", "kubernetes", "docker", "infrastructure"],
+                "mobile": ["android", "ios", "mobile", "app developer"],
+                "security": ["security", "cybersecurity", "network security"]
+            }
+            
+            # ตรวจสอบว่าคำถามเกี่ยวกับสายงานไหน
+            for category, terms in job_categories.items():
+                if any(term in query.lower() for term in terms):
+                    query_types.append(category)
         
-        # ตรวจสอบคำที่เกี่ยวข้องกับ resume
-        if resume_count > 0 and (resume_count >= job_count):
-            # คำถามเกี่ยวกับ resume และการสมัครงาน
-            return "resume"
+        # ตรวจสอบเรื่อง resume
+        if resume_count > 0 or any(term in query.lower() for term in ["สมัครงาน", "เตรียมตัว", "สัมภาษณ์"]):
+            query_types.append("resume")
         
-        # คำถามเกี่ยวข้องกับอาชีพ (เป็นกรณีพื้นฐาน)
-        return "job"
+        # ตรวจสอบเรื่องเงินเดือน
+        if "เงินเดือน" in query.lower() or "salary" in query.lower() or "รายได้" in query.lower():
+            query_types.append("salary")
+        
+        # ตรวจสอบเรื่องผู้ใช้
+        if user_count > 0:
+            query_types.append("user")
+        
+        # ถ้าไม่มีประเภทใดเลย ให้ถือว่าเป็นคำถามทั่วไปเกี่ยวกับอาชีพ
+        if not query_types:
+            query_types.append("job")
+        
+        return query_types
 
     def _fallback_search_users(self, query: str, keywords: List[str], limit: int = 5) -> List[Dict[str, Any]]:
         """

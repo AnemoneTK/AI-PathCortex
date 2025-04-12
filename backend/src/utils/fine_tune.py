@@ -176,6 +176,17 @@ class FineTuneHelper:
             List ของ prompt-response pairs
         """
         prompts = []
+
+        resume_question_templates = [
+            "วิธีเขียน resume สำหรับตำแหน่ง {tag}",
+            "ต้องเตรียม resume ยังไงสำหรับสมัครงาน {tag}",
+            "ทักษะที่ควรเน้นใน resume สำหรับตำแหน่ง {tag}",
+            "เงินเดือนของตำแหน่ง {tag} ประมาณเท่าไหร่",
+            "resume สำหรับ {tag} ที่ไม่มีประสบการณ์ควรเขียนยังไง",
+            "ตัวอย่าง portfolio สำหรับตำแหน่ง {tag}",
+            "การเตรียมตัวสัมภาษณ์งาน {tag}",
+            "สิ่งที่ HR มองหาใน resume ของคนที่สมัครงาน {tag}"
+        ]
         
         # คำถามพื้นฐานเกี่ยวกับคำแนะนำอาชีพ
         advice_question_templates = [
@@ -189,6 +200,8 @@ class FineTuneHelper:
             "ทำอย่างไรให้โดดเด่นในการสัมภาษณ์งาน?",
             "เรซูเม่กับพอร์ตโฟลิโอต่างกันอย่างไร?"
         ]
+
+        advice_question_templates.extend(resume_question_templates)
         
         # สร้าง prompts จากข้อมูลคำแนะนำอาชีพ
         for advice in career_advice_data:

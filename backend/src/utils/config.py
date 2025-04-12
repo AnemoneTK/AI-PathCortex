@@ -24,6 +24,8 @@ for dotenv_path in dotenv_paths:
 
 # กำหนด BASE_DIR จาก environment variable (สำหรับ Docker) หรือคำนวณจาก path ปัจจุบัน
 APP_PATH = os.environ.get("APP_PATH")
+FINE_TUNED_MODEL = os.getenv("FINE_TUNED_MODEL", "llama3.1-8b-instruct-fine-tuned")
+USE_FINE_TUNED = os.getenv("USE_FINE_TUNED", "False").lower() in ("true", "1", "t")
 
 if APP_PATH and os.path.exists(APP_PATH):
     # Docker: ใช้โครงสร้าง /app/data

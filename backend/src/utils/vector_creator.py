@@ -210,18 +210,35 @@ class VectorCreator:
     def _prepare_advice_text_for_embedding(self, advice: Dict[str, Any]) -> str:
         text_parts = []
         
-        # เน้นหัวข้อ
         if "title" in advice and advice["title"]:
-            text_parts.append(f"หัวข้อ: {advice['title']} " * 3)
+            title = advice["title"]
+            # ตรวจสอบว่าเกี่ยวกับ resume หรือไม่
+            is_resume_related = any(keyword in title.lower() for keyword in ["resume", "cv", "เรซูเม่", "ประวัติ", "สมัครงาน"])
+            
+            if is_resume_related:
+                # ถ้าเกี่ยวข้องกับ resume ให้เพิ่มน้ำหนัก
+                text_parts.append(f"หัวข้อ: {title} " * 5)  # ทำซ้ำให้มีน้ำหนักมากขึ้น
+            else:
+                text_parts.append(f"หัวข้อ: {title} " * 3)
         
         # เพิ่มเนื้อหา
         if "content" in advice and advice["content"]:
             text_parts.append(f"เนื้อหา: {advice['content']}")
         
-        # เน้นแท็ก
+        # เน้นแท็กที่เกี่ยวกับ resume
         if "tags" in advice and advice["tags"]:
-            tags_text = ", ".join(advice["tags"])
-            text_parts.append(f"แท็ก: {tags_text} " * 2)
+            tags = advice["tags"]
+            tags_text = ", ".join(tags)
+            
+            # ตรวจสอบว่ามีแท็กที่เกี่ยวกับ resume หรือไม่
+            has_resume_tag = any(keyword in tag.lower() for tag in tags 
+                            for keyword in ["resume", "cv", "เรซูเม่", "ประวัติ", "สมัครงาน"])
+            
+            if has_resume_tag:
+                # ถ้ามีแท็กเกี่ยวกับ resume ให้เพิ่มน้ำหนัก
+                text_parts.append(f"แท็ก: {tags_text} " * 4)
+            else:
+                text_parts.append(f"แท็ก: {tags_text} " * 2)
         
         return " ".join(text_parts)
     
