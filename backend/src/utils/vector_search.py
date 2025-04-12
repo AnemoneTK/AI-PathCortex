@@ -1002,9 +1002,9 @@ class VectorSearch:
                     "user": 1.0 if query_type == "user" else 0.5
                 }
                 
-                # โหลด metadata จาก combined_metadata
-                item_types = self.combined_metadata.get("item_types", [])
-                item_data = self.combined_metadata.get("item_data", [])
+                # โหลด metadata จาก combined_metadata ด้วยความระมัดระวัง
+                item_types = self.combined_metadata.get("item_types", []) if isinstance(self.combined_metadata, dict) else []
+                item_data = self.combined_metadata.get("item_data", []) if isinstance(self.combined_metadata, dict) else []
                 
                 processed_results = []
                 
@@ -1106,7 +1106,6 @@ class VectorSearch:
                 return self._fallback_search_users(corrected_query, keywords, limit)
             else:
                 return self.search_jobs(query, limit)
-                    
     def _identify_query_type(self, query: str, keywords: List[str]) -> str:
         """
         ระบุประเภทของคำถามว่าเกี่ยวข้องกับอาชีพ คำแนะนำ หรือผู้ใช้

@@ -445,10 +445,15 @@ class VectorCreator:
         # สร้าง embeddings สำหรับข้อมูลคำแนะนำอาชีพ
         print(f"\n{Fore.CYAN}{'='*20} สร้าง embeddings สำหรับข้อมูลคำแนะนำอาชีพ {'='*20}")
         advice_result = self.create_advice_embeddings()
+
+        # สร้าง embeddings แบบรวม
+        print(f"\n{Fore.CYAN}{'='*20} สร้าง embeddings แบบรวม {'='*20}")
+        combined_result = self.create_combined_embeddings()  # เพิ่มบรรทัดนี้
         
         return {
             "job_embeddings": job_result,
-            "advice_embeddings": advice_result
+            "advice_embeddings": advice_result,
+            "combined_embeddings": combined_result
         }
     
     def search_similar_jobs(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
@@ -672,66 +677,7 @@ class VectorCreator:
         except Exception as e:
             print(f"{Fore.RED}❌ เกิดข้อผิดพลาดในการดึงข้อมูลคำแนะนำ: {str(e)}")
             return None
-
-
-# ตัวอย่างการใช้งาน
-if __name__ == "__main__":
-    # สร้างโมเดล SentenceTransformer (ถ้ามี)
-    model = None
-    try:
-        from sentence_transformers import SentenceTransformer
-        print(f"{Fore.CYAN}🔄 กำลังโหลดโมเดล SentenceTransformer...")
-        model = SentenceTransformer('intfloat/e5-small-v2')
-        print(f"{Fore.GREEN}✅ โหลดโมเดลสำเร็จ")
-    except Exception as e:
-        print(f"{Fore.YELLOW}⚠️ ไม่สามารถโหลดโมเดลได้: {str(e)}")
-        print(f"{Fore.YELLOW}⚠️ จะใช้การจำลอง embedding แทน")
-    
-    # กำหนดพาธของไฟล์
-    processed_data_dir = "data/processed"
-    vector_db_dir = "data/vector_db"
-    
-    try:
-        print(f"{Fore.CYAN}{'='*60}")
-        print(f"{Fore.CYAN}= ทดสอบการใช้งาน VectorCreator")
-        print(f"{Fore.CYAN}{'='*60}")
         
-        # สร้าง VectorCreator
-        creator = VectorCreator(
-            processed_data_dir=processed_data_dir,
-            vector_db_dir=vector_db_dir,
-            embedding_model=model,
-            clear_vector_db=True  # ล้างข้อมูลเดิมก่อนสร้างใหม่
-        )
-        
-        # สร้าง embeddings ทั้งหมด
-        results = creator.create_all_embeddings()
-        
-        # ทดสอบการค้นหา
-        print(f"\n{Fore.CYAN}{'='*60}")
-        print(f"{Fore.CYAN}= ทดสอบการค้นหา")
-        print(f"{Fore.CYAN}{'='*60}")
-        
-        # ทดสอบค้นหาอาชีพ
-        print(f"\n{Fore.CYAN}🔍 ทดสอบค้นหาอาชีพที่เกี่ยวข้องกับ: 'นักพัฒนาซอฟต์แวร์'{Style.RESET_ALL}")
-        creator.search_similar_jobs("นักพัฒนาซอฟต์แวร์", k=3)
-        
-        print(f"\n{Fore.CYAN}🔍 ทดสอบค้นหาอาชีพที่เกี่ยวข้องกับ: 'การจัดการโครงการ'{Style.RESET_ALL}")
-        creator.search_similar_jobs("การจัดการโครงการ", k=3)
-        
-        # ทดสอบค้นหาคำแนะนำอาชีพ
-        print(f"\n{Fore.CYAN}🔍 ทดสอบค้นหาคำแนะนำอาชีพที่เกี่ยวข้องกับ: 'การเขียน resume'{Style.RESET_ALL}")
-        creator.search_relevant_advices("การเขียน resume", k=3)
-        
-        print(f"\n{Fore.CYAN}🔍 ทดสอบค้นหาคำแนะนำอาชีพที่เกี่ยวข้องกับ: 'การเตรียมตัวสัมภาษณ์งาน'{Style.RESET_ALL}")
-        creator.search_relevant_advices("การเตรียมตัวสัมภาษณ์งาน", k=3)
-        
-        print(f"\n{Fore.GREEN}✅ ทดสอบเสร็จสิ้น")
-        
-    except Exception as e:
-        print(f"{Fore.RED}❌ เกิดข้อผิดพลาดในการทดสอบ: {str(e)}")
-
-
     def create_combined_embeddings(self) -> Dict[str, Any]:
         """
         สร้าง embeddings แบบรวมข้อมูลอาชีพและคำแนะนำเข้าด้วยกัน
@@ -1034,6 +980,65 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"{Fore.RED}❌ เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ใช้: {str(e)}")
             return []
+
+
+# ตัวอย่างการใช้งาน
+if __name__ == "__main__":
+    # สร้างโมเดล SentenceTransformer (ถ้ามี)
+    model = None
+    try:
+        from sentence_transformers import SentenceTransformer
+        print(f"{Fore.CYAN}🔄 กำลังโหลดโมเดล SentenceTransformer...")
+        model = SentenceTransformer('intfloat/e5-small-v2')
+        print(f"{Fore.GREEN}✅ โหลดโมเดลสำเร็จ")
+    except Exception as e:
+        print(f"{Fore.YELLOW}⚠️ ไม่สามารถโหลดโมเดลได้: {str(e)}")
+        print(f"{Fore.YELLOW}⚠️ จะใช้การจำลอง embedding แทน")
+    
+    # กำหนดพาธของไฟล์
+    processed_data_dir = "data/processed"
+    vector_db_dir = "data/vector_db"
+    
+    try:
+        print(f"{Fore.CYAN}{'='*60}")
+        print(f"{Fore.CYAN}= ทดสอบการใช้งาน VectorCreator")
+        print(f"{Fore.CYAN}{'='*60}")
+        
+        # สร้าง VectorCreator
+        creator = VectorCreator(
+            processed_data_dir=processed_data_dir,
+            vector_db_dir=vector_db_dir,
+            embedding_model=model,
+            clear_vector_db=True  # ล้างข้อมูลเดิมก่อนสร้างใหม่
+        )
+        
+        # สร้าง embeddings ทั้งหมด
+        results = creator.create_all_embeddings()
+        
+        # ทดสอบการค้นหา
+        print(f"\n{Fore.CYAN}{'='*60}")
+        print(f"{Fore.CYAN}= ทดสอบการค้นหา")
+        print(f"{Fore.CYAN}{'='*60}")
+        
+        # ทดสอบค้นหาอาชีพ
+        print(f"\n{Fore.CYAN}🔍 ทดสอบค้นหาอาชีพที่เกี่ยวข้องกับ: 'นักพัฒนาซอฟต์แวร์'{Style.RESET_ALL}")
+        creator.search_similar_jobs("นักพัฒนาซอฟต์แวร์", k=3)
+        
+        print(f"\n{Fore.CYAN}🔍 ทดสอบค้นหาอาชีพที่เกี่ยวข้องกับ: 'การจัดการโครงการ'{Style.RESET_ALL}")
+        creator.search_similar_jobs("การจัดการโครงการ", k=3)
+        
+        # ทดสอบค้นหาคำแนะนำอาชีพ
+        print(f"\n{Fore.CYAN}🔍 ทดสอบค้นหาคำแนะนำอาชีพที่เกี่ยวข้องกับ: 'การเขียน resume'{Style.RESET_ALL}")
+        creator.search_relevant_advices("การเขียน resume", k=3)
+        
+        print(f"\n{Fore.CYAN}🔍 ทดสอบค้นหาคำแนะนำอาชีพที่เกี่ยวข้องกับ: 'การเตรียมตัวสัมภาษณ์งาน'{Style.RESET_ALL}")
+        creator.search_relevant_advices("การเตรียมตัวสัมภาษณ์งาน", k=3)
+        
+        print(f"\n{Fore.GREEN}✅ ทดสอบเสร็จสิ้น")
+        
+    except Exception as e:
+        print(f"{Fore.RED}❌ เกิดข้อผิดพลาดในการทดสอบ: {str(e)}")
+
 
     def create_all_embeddings(self) -> Dict[str, Any]:
         """

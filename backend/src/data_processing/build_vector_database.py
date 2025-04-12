@@ -87,20 +87,35 @@ def main():
                 print(f"\n{Fore.CYAN}🔍 ทดสอบค้นหา: \"{query}\"{Style.RESET_ALL}")
                 vector_creator.search_relevant_advices(query, k=3)
         
+
+        # ตรวจสอบผลลัพธ์การสร้าง embeddings
+        job_success = results["job_embeddings"]["success"]
+        advice_success = results["advice_embeddings"]["success"]
+        combined_success = results.get("combined_embeddings", {}).get("success", False)
+
+        # ส่วนแสดงผลการสร้าง embeddings แบบรวม
+        if "combined_embeddings" in results:
+            if combined_success:
+                print(f"{Fore.GREEN}✅ สร้าง embeddings แบบรวมสำเร็จ: {results['combined_embeddings']['vectors_count']} vectors{Style.RESET_ALL}")
+            else:
+                print(f"{Fore.RED}❌ สร้าง embeddings แบบรวมไม่สำเร็จ: {results['combined_embeddings'].get('error', 'ไม่ทราบสาเหตุ')}{Style.RESET_ALL}")
+
         # สรุปผล
         print(f"\n{Fore.CYAN}{'='*20} สรุปผลการสร้าง Vector Database {'='*20}{Style.RESET_ALL}")
-        if results["job_embeddings"]["success"] and results["advice_embeddings"]["success"]:
+        if job_success and advice_success:
+            # ถ้าทั้งอาชีพและคำแนะนำสำเร็จ
             print(f"{Fore.GREEN}✅ สร้าง Vector Database สำเร็จทั้งหมด{Style.RESET_ALL}")
             print(f"  - ข้อมูลอาชีพ: {results['job_embeddings']['vectors_count']} vectors")
             print(f"  - ข้อมูลคำแนะนำอาชีพ: {results['advice_embeddings']['vectors_count']} vectors")
         else:
             print(f"{Fore.YELLOW}⚠️ สร้าง Vector Database สำเร็จบางส่วน{Style.RESET_ALL}")
-            if results["job_embeddings"]["success"]:
+            
+            if job_success:
                 print(f"{Fore.GREEN}✅ ข้อมูลอาชีพ: {results['job_embeddings']['vectors_count']} vectors{Style.RESET_ALL}")
             else:
                 print(f"{Fore.RED}❌ ข้อมูลอาชีพ: ไม่สำเร็จ - {results['job_embeddings'].get('error', 'ไม่ทราบสาเหตุ')}{Style.RESET_ALL}")
             
-            if results["advice_embeddings"]["success"]:
+            if advice_success:
                 print(f"{Fore.GREEN}✅ ข้อมูลคำแนะนำอาชีพ: {results['advice_embeddings']['vectors_count']} vectors{Style.RESET_ALL}")
             else:
                 print(f"{Fore.RED}❌ ข้อมูลคำแนะนำอาชีพ: ไม่สำเร็จ - {results['advice_embeddings'].get('error', 'ไม่ทราบสาเหตุ')}{Style.RESET_ALL}")
