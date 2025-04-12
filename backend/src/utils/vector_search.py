@@ -953,7 +953,7 @@ class VectorSearch:
             print(f"{Fore.YELLOW}⚠️ {warning_msg}{Style.RESET_ALL}")
             
             # ถ้าเป็นคำถามหลายประเภท ต้องจัดลำดับความสำคัญ
-            if "resume" in query_types and any(t in query_types for t in ["job", "frontend", "backend", "data"]):
+            if "resume" in query_types and any(t in query_types for t in ["job", "frontend", "backend", "data", "fullstack"]):
                 # คำถามเกี่ยวกับทั้งอาชีพและ resume
                 advice_results = self.search_career_advices(query, limit // 2)
                 job_results = self.search_jobs(query, limit // 2)
@@ -1010,11 +1010,26 @@ class VectorSearch:
                 results = []
                 
                 # ปรับการจัดอันดับผลลัพธ์ตามประเภทคำถาม
-                type_weights = {
-                    "job": 1.0 if query_type == "job" else 0.6,
-                    "advice": 1.0 if query_type == "resume" else 0.7,
-                    "user": 1.0 if query_type == "user" else 0.5
-                }
+                type_weights = {}
+                
+                # กำหนดน้ำหนักตามประเภทคำถาม
+                for query_type in query_types:
+                    if query_type == "job" or query_type in ["frontend", "backend", "fullstack", "data"]:
+                        type_weights["job"] = 1.0
+                    elif query_type == "resume":
+                        type_weights["advice"] = 1.0
+                    elif query_type == "user":
+                        type_weights["user"] = 1.0
+                    elif query_type == "salary":
+                        type_weights["job"] = 1.0  # ให้น้ำหนักกับข้อมูลงานเมื่อถามเกี่ยวกับเงินเดือน
+                
+                # กำหนดค่าเริ่มต้นสำหรับประเภทที่ไม่ได้ระบุ
+                if "job" not in type_weights:
+                    type_weights["job"] = 0.6
+                if "advice" not in type_weights:
+                    type_weights["advice"] = 0.7
+                if "user" not in type_weights:
+                    type_weights["user"] = 0.5
                 
                 # โหลด metadata จาก combined_metadata ด้วยความระมัดระวัง
                 item_types = self.combined_metadata.get("item_types", []) if isinstance(self.combined_metadata, dict) else []
@@ -1101,9 +1116,11 @@ class VectorSearch:
                 print(f"{Fore.RED}❌ {error_msg}{Style.RESET_ALL}")
                 
                 # ทำ fallback ตามประเภทคำถาม
-                if query_type == "resume":
+                primary_query_type = query_types[0] if query_types else "job"  # ใช้ประเภทแรกเป็นหลัก
+                
+                if primary_query_type == "resume" or "resume" in query_types:
                     return self.search_career_advices(query, limit)
-                elif query_type == "user":
+                elif primary_query_type == "user" or "user" in query_types:
                     return self._fallback_search_users(corrected_query, keywords, limit)
                 else:
                     return self.search_jobs(query, limit)
@@ -1114,12 +1131,15 @@ class VectorSearch:
             print(f"{Fore.RED}❌ {error_msg}{Style.RESET_ALL}")
             
             # ทำ fallback ตามประเภทคำถาม
-            if query_type == "resume":
+            primary_query_type = query_types[0] if query_types else "job"  # ใช้ประเภทแรกเป็นหลัก
+            
+            if primary_query_type == "resume" or "resume" in query_types:
                 return self.search_career_advices(query, limit)
-            elif query_type == "user":
+            elif primary_query_type == "user" or "user" in query_types:
                 return self._fallback_search_users(corrected_query, keywords, limit)
             else:
                 return self.search_jobs(query, limit)
+            
     def _identify_query_type(self, query: str, keywords: List[str]) -> List[str]:
         """
         ระบุประเภทของคำถามว่าเกี่ยวข้องกับอาชีพ คำแนะนำ หรือผู้ใช้
