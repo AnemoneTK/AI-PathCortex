@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Brain } from "lucide-react";
+import Link from "next/link";
 
 const Navbar = () => {
   return (
@@ -20,7 +21,9 @@ const Navbar = () => {
         </nav>
         
         <div className="hidden md:block">
+          <Link href="/registration">
           <Button className="bg-theme-blue hover:bg-blue-800 text-white">เริ่มต้นใช้งาน</Button>
+          </Link>
         </div>
         
         <button className="md:hidden text-gray-700">

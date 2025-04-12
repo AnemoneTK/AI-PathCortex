@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from 'lucide-react';
+import Link from "next/link";
 
 const CTA = () => {
   return (
@@ -13,10 +14,13 @@ const CTA = () => {
               <p className="text-lg text-gray-600 mb-8">
                 เริ่มต้นใช้งาน AI Buddy ฟรีวันนี้ และพัฒนาทักษะด้าน Computer Science ของคุณได้อย่างรวดเร็วและมีประสิทธิภาพ
               </p>
-              <Button className="bg-theme-blue hover:bg-blue-800 text-white px-8 py-6 rounded-xl text-lg">
-                <span>เริ่มต้นใช้งานฟรี</span>
+          <Link href="/registration">
+          <Button className="bg-theme-blue hover:bg-blue-800 text-white px-8 py-6 rounded-xl text-lg">
+                <span>เริ่มต้นใช้งาน</span>
                 <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
+              </Button></Link>
+
+              
             </div>
           </div>
         </div>

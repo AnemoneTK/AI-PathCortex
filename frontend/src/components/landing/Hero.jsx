@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Bot, Brain, Book } from "lucide-react";
+import Link from "next/link";
 
 const Hero = () => {
   return (
@@ -17,7 +18,10 @@ const Hero = () => {
               พร้อมด้วย 3 บุคลิกภาพเฉพาะตัว ที่สามารถเลือกให้เหมาะกับรูปแบบการเรียนรู้ของคุณ
             </p>
             <div className="flex flex-wrap gap-4">
-              <Button className="bg-theme-blue hover:bg-blue-800 text-white">เริ่มต้นใช้งานฟรี</Button>
+          <Link href="/registration">
+          <Button className="bg-theme-blue hover:bg-blue-800 text-white">เริ่มต้นใช้งาน</Button>
+          </Link>
+
               <Button variant="outline" className="border-theme-blue text-theme-blue hover:bg-theme-blue/10">ดูเพิ่มเติม</Button>
             </div>
             

@@ -42,24 +42,59 @@ async def get_users():
     return [UserSummary.parse_obj(user) for user in users]
 
 @router.post("/", response_model=User)
-async def create_new_user(user_data: UserCreate):
-    """
-    สร้างผู้ใช้ใหม่
-    
-    Args:
-        user_data: ข้อมูลผู้ใช้
+async def create_new_user(
+    name: str = Form(...),
+    institution: Optional[str] = Form(None),
+    education_status: EducationStatus = Form(EducationStatus.STUDENT),
+    year: int = Form(1),
+    skills: str = Form("[]"),  # JSON string
+    programming_languages: List[str] = Form([]),
+    tools: List[str] = Form([]),
+    projects: str = Form("[]"),  # JSON string
+    work_experiences: str = Form("[]"),  # JSON string
+    resume: Optional[UploadFile] = File(None)
+):
+    try:
+        # Parse JSON strings
+        skills_data = json.loads(skills)
+        projects_data = json.loads(projects)
+        work_experiences_data = json.loads(work_experiences)
         
-    Returns:
-        User: ข้อมูลผู้ใช้ที่สร้างแล้ว
-    """
-    user = create_user(user_data)
-    if not user:
-        raise HTTPException(status_code=500, detail="ไม่สามารถสร้างผู้ใช้ได้")
-    
-    # อัปเดตข้อมูลผู้ใช้ในไฟล์รวม
-    update_user_to_combined_file(user)
-    
-    return user
+        # Convert to appropriate model objects
+        skills_objects = [UserSkill(**skill) for skill in skills_data]
+        projects_objects = [UserProject(**project) for project in projects_data]
+        
+        # Create UserCreate object
+        user_data = UserCreate(
+            name=name,
+            institution=institution,
+            education_status=education_status,
+            year=year,
+            skills=skills_objects,
+            programming_languages=programming_languages,
+            tools=tools,
+            projects=projects_objects,
+            work_experiences=work_experiences_data
+        )
+        
+        user = create_user(user_data)
+        if not user:
+            raise HTTPException(status_code=500, detail="ไม่สามารถสร้างผู้ใช้ได้")
+        
+        # บันทึก resume ถ้ามี
+        if resume:
+            resume_path = await save_resume(user.id, resume.file, resume.filename)
+            if resume_path:
+                logger.info(f"บันทึกไฟล์ Resume สำหรับผู้ใช้ {user.id} ที่ {resume_path}")
+        
+        return user
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"ข้อมูล JSON ไม่ถูกต้อง: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"ข้อมูล JSON ไม่ถูกต้อง: {str(e)}")
+    except Exception as e:
+        logger.error(f"เกิดข้อผิดพลาดในการสร้างผู้ใช้: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"เกิดข้อผิดพลาดในการสร้างผู้ใช้: {str(e)}")
 
 @router.patch("/{user_id}", response_model=User)
 async def update_user_info(
