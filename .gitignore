@@ -76,6 +76,8 @@
 **/*.key
 
 **/backend/data_backup
+**/backend/data
+**/data
 **/backup
 **/myenv
 **/__pycache__

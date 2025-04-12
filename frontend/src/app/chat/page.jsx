@@ -37,10 +37,11 @@ export default function ChatPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          personality: chatStyle, // Use the selected style (formal, friendly, fun)
+          personality: chatStyle, 
           query: userMessage.content
         }),
       })
+      console.log('response',response)
 
       if (!response.ok) {
         throw new Error(`API responded with status: ${response.status}`)

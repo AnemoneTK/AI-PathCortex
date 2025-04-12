@@ -1,6 +1,8 @@
 services:
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: career-ai-backend
     restart: unless-stopped
     ports:
@@ -14,12 +16,12 @@ services:
       - LLM_MODEL=llama3.1:latest
       - LLM_API_BASE=http://host.docker.internal:11434
       - FINE_TUNED_MODEL=llama3.1-8b-instruct-fine-tuned
-      - USE_FINE_TUNED=False
+      - USE_FINE_TUNED=True
     volumes:
-      - ./backend/data:/app/data
-      - ./backend/logs:/app/logs
-      - ./backend/uploads:/app/uploads
-      - ./.env:/app/.env
+      - ./data:/app/data
+    entrypoint: ["/app/entrypoint.sh"]
+    command:
+      ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
     depends_on:
       - llm-service
 
