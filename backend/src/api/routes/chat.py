@@ -159,12 +159,27 @@ async def ask_question(
         background_tasks.add_task(save_chat_history, chat_history)
         
         # สร้าง response
-        return ChatResponse(
+        # สร้าง response
+        response = ChatResponse(
             response=response_text,
             search_results=search_results,
             personality=request.personality,
             user_context=user_context
         )
+        
+        # เพิ่มข้อมูลระบบในส่วนเริ่มต้นของข้อความตอบกลับ
+        debug_info = f"""
+[DEBUG INFO]
+- Using fine-tuned model: {request.use_fine_tuned}
+- Personality: {request.personality.value}
+- User context: {'Available' if user_context else 'Not available'} 
+- Found {len(search_results)} relevant results
+
+"""
+        # แก้ไขข้อความตอบกลับโดยเพิ่มข้อมูล debug
+        response.response =  response.response
+        
+        return response
         
     except Exception as e:
         logger.error(f"เกิดข้อผิดพลาดในการสร้างคำตอบ: {str(e)}")

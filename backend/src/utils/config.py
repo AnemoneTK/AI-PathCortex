@@ -101,7 +101,7 @@ LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 
 # ตั้งค่า Fine-tuned Model
 FINE_TUNED_MODEL = os.getenv("FINE_TUNED_MODEL", "llama3.1-8b-instruct-fine-tuned")
-USE_FINE_TUNED = os.getenv("USE_FINE_TUNED", "True").lower() in ("true", "1", "t")
+USE_FINE_TUNED = os.getenv("USE_FINE_TUNED", "False").lower() in ("true", "1", "t")
 
 class PersonalityType(str, Enum):
     """ประเภทบุคลิกของ AI"""

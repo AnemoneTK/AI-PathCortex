@@ -31,32 +31,31 @@ async def generate_response(
     """
     สร้างคำตอบจาก LLM
     
-    Args:
-        prompt: Prompt ที่ต้องการส่งไปยัง LLM
-        personality: รูปแบบบุคลิกของ AI
-        temperature: ค่า temperature สำหรับการสร้างคำตอบ (0.0-1.0)
-        max_tokens: จำนวนโทเค็นสูงสุดที่ต้องการให้ LLM สร้าง
-        top_k: ค่า top_k สำหรับการสร้างคำตอบ
-        top_p: ค่า top_p สำหรับการสร้างคำตอบ
-        timeout: เวลาที่รอคำตอบสูงสุด (วินาที)
-        use_fine_tuned: ใช้โมเดล fine-tuned หรือไม่
-        user_context: ข้อมูลผู้ใช้ (ถ้ามี)
-        
-    Returns:
-        str: คำตอบจาก LLM
+    Args:...
     """
     try:
+        # ตรวจสอบว่าใช้ fine-tuned model หรือไม่
         if use_fine_tuned is None:
-            # ถ้าไม่ได้ระบุ ให้ใช้ค่าจาก config
             from src.utils.config import USE_FINE_TUNED, FINE_TUNED_MODEL
             should_use_fine_tuned = USE_FINE_TUNED and FINE_TUNED_MODEL
         else:
-            # ถ้าระบุ ให้ใช้ค่าที่ส่งมา
             should_use_fine_tuned = use_fine_tuned and FINE_TUNED_MODEL
         
         # เลือกโมเดลที่จะใช้
         model = FINE_TUNED_MODEL if should_use_fine_tuned else LLM_MODEL
+        
+        # เพิ่ม logging ตรงนี้
+        print(f"==== LLM DETAILS ====")
+        print(f"Using model: {model} ({'fine-tuned' if should_use_fine_tuned else 'base'})")
+        print(f"Personality: {personality}")
+        print(f"User data available: {'Yes' if user_context else 'No'}")
+        if user_context:
+            print(f"User: {user_context.get('name', 'Unknown')}")
+            print(f"Skills: {[s.get('name', '') for s in user_context.get('skills', [])]}")
+        print(f"=====================")
+        
         logger.info(f"กำลังใช้โมเดล: {model} ({'fine-tuned' if should_use_fine_tuned else 'base'})")
+        
         
         # เพิ่มข้อมูลผู้ใช้ลงในคำถาม (ถ้ามี)
         enhanced_prompt = prompt
@@ -179,6 +178,12 @@ def _add_personality_to_prompt(prompt: str, personality: PersonalityType) -> str
         """
     }
     
+    # เพิ่ม logging ตรงนี้
+    print(f"==== PERSONALITY APPLIED ====")
+    print(f"Using personality: {personality}")
+    print(f"Instructions applied: {personality_instructions[personality][:100]}...")
+    print(f"============================")
+    
     resume_keywords = ["resume", "เรซูเม่", "เรซูเม", "cv", "ประวัติ", "สมัครงาน"]
     is_resume_question = any(keyword in prompt.lower() for keyword in resume_keywords)
 
@@ -206,19 +211,19 @@ async def chat_with_job_context(
 ) -> str:
     """
     สนทนากับ LLM โดยใช้บริบทของอาชีพและผู้ใช้
-    
-    Args:
-        query: คำถามของผู้ใช้
-        job_contexts: บริบทของอาชีพที่เกี่ยวข้อง
-        user_context: บริบทของผู้ใช้ (ถ้ามี)
-        advice_contexts: บริบทของคำแนะนำที่เกี่ยวข้อง (ถ้ามี)
-        personality: รูปแบบบุคลิกของ AI
-        use_fine_tuned: ใช้โมเดล fine-tuned หรือไม่
-        
-    Returns:
-        str: คำตอบจาก LLM
     """
-    # สร้างบริบทจากข้อมูลอาชีพ
+    # เพิ่มข้อมูลการแสดงผล
+    print(f"==== CONTEXT INFO ====")
+    print(f"Query: {query}")
+    print(f"Job contexts available: {len(job_contexts)}")
+    print(f"User context available: {'Yes' if user_context else 'No'}")
+    if user_context:
+        print(f"User: {user_context.get('name', 'Unknown')}")
+    print(f"Advice contexts available: {len(advice_contexts) if advice_contexts else 0}")
+    print(f"Using fine-tuned model: {'Yes' if use_fine_tuned else 'No'}")
+    print(f"Personality: {personality}")
+    print(f"=====================")
+
     job_context_text = ""
     if job_contexts:
         job_parts = []
@@ -361,17 +366,17 @@ async def chat_with_combined_context(
 ) -> str:
     """
     สนทนากับ LLM โดยใช้บริบทรวมจากการค้นหา
-    
-    Args:
-        query: คำถามของผู้ใช้
-        search_results: ผลลัพธ์การค้นหาแบบรวม (อาชีพ, คำแนะนำ, ผู้ใช้)
-        user_context: บริบทของผู้ใช้ (ถ้ามี)
-        personality: รูปแบบบุคลิกของ AI
-        use_fine_tuned: ใช้โมเดล fine-tuned หรือไม่
-        
-    Returns:
-        str: คำตอบจาก LLM
     """
+    # เพิ่มข้อมูลการแสดงผล
+    print(f"==== COMBINED CONTEXT INFO ====")
+    print(f"Query: {query}")
+    print(f"Search results available: {len(search_results)}")
+    print(f"User context available: {'Yes' if user_context else 'No'}")
+    if user_context:
+        print(f"User: {user_context.get('name', 'Unknown')}")
+    print(f"Using fine-tuned model: {'Yes' if use_fine_tuned else 'No'}")
+    print(f"Personality: {personality}")
+    
     # จัดกลุ่มผลลัพธ์ตามประเภท
     job_results = []
     advice_results = []
@@ -384,6 +389,11 @@ async def chat_with_combined_context(
             advice_results.append(result)
         elif result["type"] == "user":
             user_results.append(result)
+    
+    print(f"Job results: {len(job_results)}")
+    print(f"Advice results: {len(advice_results)}")
+    print(f"User results: {len(user_results)}")
+    print(f"=============================")
     
     # สร้างบริบทจากข้อมูลอาชีพ
     job_context_text = ""

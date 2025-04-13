@@ -16,7 +16,7 @@ services:
       - LLM_MODEL=llama3.1:latest
       - LLM_API_BASE=http://host.docker.internal:11434
       - FINE_TUNED_MODEL=llama3.1-8b-instruct-fine-tuned
-      - USE_FINE_TUNED=True
+      - USE_FINE_TUNED=False
     volumes:
       - ./data:/app/data
     entrypoint: ["/app/entrypoint.sh"]
