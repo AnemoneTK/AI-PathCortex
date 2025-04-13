@@ -26,3 +26,10 @@ requests==2.31.0
 beautifulsoup4==4.12.2
 tqdm==4.65.0
 colorama==0.4.6
+
+
+unsloth
+torch
+peft
+accelerate
+bitsandbytes

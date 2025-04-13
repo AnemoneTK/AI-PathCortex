@@ -23,7 +23,7 @@ for dotenv_path in dotenv_paths:
 
 
 # กำหนด BASE_DIR จาก environment variable (สำหรับ Docker) หรือคำนวณจาก path ปัจจุบัน
-APP_PATH = os.environ.get("APP_PATH")
+APP_PATH = os.environ.get("APP_PATH") 
 FINE_TUNED_MODEL = os.getenv("FINE_TUNED_MODEL", "llama3.1-8b-instruct-fine-tuned")
 USE_FINE_TUNED = os.getenv("USE_FINE_TUNED", "False").lower() in ("true", "1", "t")
 
@@ -101,7 +101,7 @@ LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 
 # ตั้งค่า Fine-tuned Model
 FINE_TUNED_MODEL = os.getenv("FINE_TUNED_MODEL", "llama3.1-8b-instruct-fine-tuned")
-USE_FINE_TUNED = os.getenv("USE_FINE_TUNED", "False").lower() in ("true", "1", "t")
+USE_FINE_TUNED = os.getenv("USE_FINE_TUNED", "True").lower() in ("true", "1", "t")
 
 class PersonalityType(str, Enum):
     """ประเภทบุคลิกของ AI"""
@@ -152,3 +152,8 @@ def get_settings() -> Dict[str, Any]:
         "fine_tuned_model": FINE_TUNED_MODEL,
         "use_fine_tuned": USE_FINE_TUNED,
     }
+
+# การตั้งค่า Unsloth
+UNSLOTH_MAX_SEQ_LENGTH = 2048
+UNSLOTH_LORA_R = 16
+UNSLOTH_LORA_ALPHA = 16

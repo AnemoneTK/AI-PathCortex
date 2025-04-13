@@ -6,10 +6,17 @@ Base routes for the Career AI Advisor API.
 
 This module defines the base routes for the API.
 """
-
+import os
 from typing import Dict, Any
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
+from dotenv import load_dotenv
+
+dotenv_paths = ["/app/.env", ".env", "../.env", "../../.env"]
+for dotenv_path in dotenv_paths:
+    if os.path.exists(dotenv_path):
+        load_dotenv(dotenv_path)
+        print(f"Loaded .env from {os.path.abspath(dotenv_path)}")
 
 from src.utils.config import get_settings
 from src.utils.logger import get_logger
@@ -19,6 +26,9 @@ logger = get_logger("api.routes.base")
 
 # สร้าง router
 router = APIRouter(tags=["General"])
+
+
+
 
 @router.get("/")
 async def root():
@@ -39,13 +49,13 @@ async def health_check():
         Dict[str, Any]: สถานะของ API
     """
     try:
-        # ตรวจสอบการเข้าถึงโฟลเดอร์ต่างๆ
-        settings = get_settings()
-        
-        import os
-        data_dir_exists = os.path.exists(settings["data_dir"])
-        vector_db_exists = os.path.exists(settings["vector_db_dir"])
-        users_dir_exists = os.path.exists(settings["users_dir"])
+        APP_PATH = os.environ.get("APP_PATH") 
+        ROOT_DIR = os.path.dirname(APP_PATH)  
+        BASE_DIR = os.path.join(ROOT_DIR, "app")
+        DATA_DIR = os.path.join(BASE_DIR, "data")
+        data_dir_exists = DATA_DIR
+        vector_db_exists = os.path.join(DATA_DIR, "vector_db")
+        users_dir_exists = os.path.join(DATA_DIR, "users")
         
         return {
             "status": "healthy",
@@ -60,6 +70,9 @@ async def health_check():
             status_code=500,
             content={
                 "status": "unhealthy",
+                "data_dir_exists": data_dir_exists,
+                "vector_db_exists": vector_db_exists,
+                "users_dir_exists": users_dir_exists,
                 "error": str(e)
             }
         )
