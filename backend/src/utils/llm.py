@@ -25,7 +25,8 @@ async def generate_response(
     top_k: int = 40,
     top_p: float = 0.9,
     timeout: float = 120.0,
-    use_fine_tuned: Optional[bool] = None  
+    use_fine_tuned: Optional[bool] = None,
+    user_context: Optional[Dict[str, Any]] = None 
 ) -> str:
     """
     สร้างคำตอบจาก LLM
@@ -38,6 +39,8 @@ async def generate_response(
         top_k: ค่า top_k สำหรับการสร้างคำตอบ
         top_p: ค่า top_p สำหรับการสร้างคำตอบ
         timeout: เวลาที่รอคำตอบสูงสุด (วินาที)
+        use_fine_tuned: ใช้โมเดล fine-tuned หรือไม่
+        user_context: ข้อมูลผู้ใช้ (ถ้ามี)
         
     Returns:
         str: คำตอบจาก LLM
@@ -55,8 +58,48 @@ async def generate_response(
         model = FINE_TUNED_MODEL if should_use_fine_tuned else LLM_MODEL
         logger.info(f"กำลังใช้โมเดล: {model} ({'fine-tuned' if should_use_fine_tuned else 'base'})")
         
+        # เพิ่มข้อมูลผู้ใช้ลงในคำถาม (ถ้ามี)
+        enhanced_prompt = prompt
+        if user_context:
+            user_name = user_context.get('name', '')
+            user_skills = []
+            
+            # รวบรวมทักษะของผู้ใช้
+            if 'skills' in user_context and isinstance(user_context['skills'], list):
+                for skill in user_context['skills']:
+                    if isinstance(skill, dict):
+                        skill_name = skill.get('name', '')
+                        proficiency = skill.get('proficiency', 0)
+                        if skill_name:
+                            user_skills.append(f"{skill_name} (ระดับ {proficiency}/5)")
+                    elif isinstance(skill, str):
+                        user_skills.append(skill)
+            
+            # รวบรวมภาษาโปรแกรมที่ผู้ใช้รู้
+            user_languages = user_context.get('programming_languages', [])
+            
+            # สร้างข้อมูลผู้ใช้เพิ่มเติม
+            user_info = f"""
+ข้อมูลผู้ใช้:
+ชื่อ: {user_name}
+"""
+            if 'institution' in user_context and user_context['institution']:
+                user_info += f"สถาบัน: {user_context['institution']}\n"
+            
+            if 'education_status' in user_context and user_context['education_status']:
+                user_info += f"สถานะการศึกษา: {user_context['education_status']}\n"
+            
+            if user_skills:
+                user_info += f"ทักษะ: {', '.join(user_skills)}\n"
+            
+            if user_languages:
+                user_info += f"ภาษาโปรแกรม: {', '.join(user_languages)}\n"
+            
+            # เพิ่มข้อมูลผู้ใช้ลงในคำถาม
+            enhanced_prompt = f"{enhanced_prompt}\n\n{user_info}"
+        
         # ปรับ prompt ตามบุคลิก
-        prompt_with_personality = _add_personality_to_prompt(prompt, personality)
+        prompt_with_personality = _add_personality_to_prompt(enhanced_prompt, personality)
         
         # สร้าง payload สำหรับ LLM API
         payload = {
@@ -68,43 +111,20 @@ async def generate_response(
             "top_p": top_p,
             "stream": False
         }
-        # ปรับ prompt ตามบุคลิก
-        prompt_with_personality = _add_personality_to_prompt(prompt, personality)
-        
-        # สร้าง payload สำหรับ LLM API
-        # payload = {
-        #     "model": LLM_MODEL,
-        #     "prompt": prompt_with_personality,
-        #     "temperature": temperature,
-        #     "max_tokens": max_tokens,
-        #     "top_k": top_k,
-        #     "top_p": top_p,
-        #     "stream": False
-        # }
         
         # สร้าง headers
         headers = {}
         if LLM_API_KEY:
             headers["Authorization"] = f"Bearer {LLM_API_KEY}"
         
-        logger.info(f"ส่งคำขอไปยัง LLM API: {LLM_API_BASE}")
+        # เรียกใช้ LLM API
+        result = await _call_llm_api(payload, headers, timeout)
         
-        # ส่งคำขอไปยัง LLM API
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{LLM_API_BASE}/api/generate",
-                json=payload,
-                headers=headers,
-                timeout=timeout
-            )
-            
-            # ตรวจสอบสถานะการตอบกลับ
-            if response.status_code == 200:
-                result = response.json()
-                return result.get("response", "")
-            else:
-                logger.error(f"LLM API ตอบกลับด้วย status code: {response.status_code}, {response.text}")
-                return f"เกิดข้อผิดพลาดในการเรียกใช้ LLM API: HTTP {response.status_code}"
+        # ตรวจสอบคำตอบจาก API และปรับแต่งตามบุคลิก
+        api_response = result.get("response", "")
+        formatted_response = _format_answer_with_personality(api_response, user_context, personality)
+        
+        return formatted_response
                 
     except httpx.TimeoutException:
         logger.error(f"การเรียกใช้ LLM API หมดเวลา (timeout)")
@@ -112,7 +132,6 @@ async def generate_response(
     except Exception as e:
         logger.error(f"เกิดข้อผิดพลาดในการเรียกใช้ LLM API: {str(e)}")
         return f"เกิดข้อผิดพลาดในการเรียกใช้ LLM API: {str(e)}"
-
 def _add_personality_to_prompt(prompt: str, personality: PersonalityType) -> str:
     """
     เพิ่มคำแนะนำเกี่ยวกับบุคลิกลงใน prompt
@@ -131,6 +150,7 @@ def _add_personality_to_prompt(prompt: str, personality: PersonalityType) -> str
         ให้ข้อมูลที่เป็นข้อเท็จจริง มีการอ้างอิงแหล่งที่มา และให้คำแนะนำที่มีความน่าเชื่อถือ
         ใช้รูปแบบการนำเสนอที่มีโครงสร้างชัดเจน มีหัวข้อหลัก หัวข้อย่อย เรียงลำดับเป็นขั้นตอน
         ใช้คำทักทายและลงท้ายอย่างสุภาพ เช่น "เรียนผู้สอบถาม" หรือ "ด้วยความเคารพ"
+        หากมีข้อมูลผู้ใช้ ให้ใช้คำว่า "ท่าน" เมื่อกล่าวถึงผู้ใช้ และเน้นทักษะหรือความรู้ทีผู้ใช้มีเมื่อให้คำแนะนำ
         """,
         
         PersonalityType.FRIENDLY: """
@@ -139,6 +159,7 @@ def _add_personality_to_prompt(prompt: str, personality: PersonalityType) -> str
         คำตอบควรเป็นธรรมชาติ ให้ความรู้สึกเหมือนคุยกับเพื่อน
         ใช้คำว่า "เธอ" หรือ "คุณ" แทนการใช้สรรพนามทางการ
         ใช้ตัวอย่างที่เข้าใจง่าย ยกตัวอย่างประสบการณ์จริง
+        ถ้ามีข้อมูลผู้ใช้ ให้เรียกชื่อของผู้ใช้โดยตรง และพูดคุยแบบเพื่อนที่เข้าใจความถนัดของเขา โดยอ้างอิงถึงทักษะหรือประสบการณ์ที่เขามี
         ถามคำถามเป็นระยะเพื่อให้เกิดการมีส่วนร่วมในการสนทนา
         """,
         
@@ -152,6 +173,8 @@ def _add_personality_to_prompt(prompt: str, personality: PersonalityType) -> str
         กรุณาตอบด้วยบุคลิกที่สนุกสนาน เน้นความตลกและการยิงมุก ใช้ภาษาไม่เป็นทางการ
         ตอบสั้นๆ กระชับ ใช้ภาษาแบบไม่เป็นทางการ
         แต่ยังคงให้ข้อมูลที่ถูกต้องและเป็นประโยชน์ แต่ออกมาในแนวสรุปสั้นๆ ไม่กี่ประโยค
+        ถ้ามีข้อมูลผู้ใช้ ให้เรียกชื่อเขาและชื่นชมทักษะที่เขามีอย่างจี๊ดๆ
+        ใช้อิโมจิเพิ่มความน่าสนใจ 🔥 และจัดรูปแบบให้ทันสมัย
         มีคำถามเพิ่มเติมไหม? ให้เป็นเปลี่ยนเป็น 'มีคำถามเพิ่มเติมไหม? พูดมาผมฟังอยู่'
         """
     }
@@ -190,6 +213,7 @@ async def chat_with_job_context(
         user_context: บริบทของผู้ใช้ (ถ้ามี)
         advice_contexts: บริบทของคำแนะนำที่เกี่ยวข้อง (ถ้ามี)
         personality: รูปแบบบุคลิกของ AI
+        use_fine_tuned: ใช้โมเดล fine-tuned หรือไม่
         
     Returns:
         str: คำตอบจาก LLM
@@ -326,7 +350,7 @@ async def chat_with_job_context(
     """
     
     # ส่ง prompt ไปยัง LLM
-    return await generate_response(prompt, personality=personality, use_fine_tuned=use_fine_tuned)
+    return await generate_response(prompt, personality=personality, use_fine_tuned=use_fine_tuned, user_context=user_context)
 
 async def chat_with_combined_context(
     query: str,
@@ -504,6 +528,8 @@ async def chat_with_combined_context(
     6. ถ้าไม่มีข้อมูลเพียงพอในการตอบคำถาม ให้ตอบว่า "ขออภัย ฉันไม่มีข้อมูลเพียงพอในการตอบคำถามนี้"
     7. เมื่อมีคำถามหลายข้อในประโยคเดียว ให้แยกคำตอบออกเป็นหัวข้อและตอบให้ครบทุกคำถาม
     8. นำข้อมูลที่ได้มาจัดเรียง และแก้ไขคำอธิบายให้เป็นสไตล์ของตัวเอง โดยยังคงเนื้อหาสำคัญ
+    9. ถ้ามีข้อมูลผู้ใช้ ให้ปรับแต่งคำตอบให้สอดคล้องกับชื่อ ทักษะ และความเชี่ยวชาญของผู้ใช้ ใช้ชื่อผู้ใช้ในคำทักทาย
+    10. ถ้ามีข้อมูลเกี่ยวกับภาษาโปรแกรมที่ผู้ใช้ถนัด ให้เน้นแนะนำอาชีพที่ใช้ภาษาเหล่านั้น
     """
     
     # ตรวจสอบหาคำเกี่ยวกับ resume และอาชีพในคำถาม
@@ -517,6 +543,30 @@ async def chat_with_combined_context(
     # ตรวจสอบคำถามเกี่ยวกับเงินเดือน
     salary_keywords = ["เงินเดือน", "salary", "รายได้", "ค่าตอบแทน"]
     is_salary_question = any(keyword in query.lower() for keyword in salary_keywords)
+
+    if user_context:
+        user_name = user_context.get('name', '')
+        user_skills = []
+        
+        # รวบรวมทักษะของผู้ใช้
+        if 'skills' in user_context and isinstance(user_context['skills'], list):
+            for skill in user_context['skills']:
+                if isinstance(skill, dict):
+                    skill_name = skill.get('name', '')
+                    if skill_name:
+                        user_skills.append(skill_name)
+        
+        # รวบรวมภาษาโปรแกรมที่ผู้ใช้รู้
+        user_languages = user_context.get('programming_languages', [])
+        
+        # เพิ่มคำแนะนำเฉพาะสำหรับผู้ใช้นี้
+        prompt += f"\n11. ใช้ชื่อ '{user_name}' เมื่อทักทาย ตามรูปแบบที่เหมาะสมกับบุคลิก"
+        
+        if user_skills:
+            prompt += f"\n12. ผู้ใช้มีทักษะด้าน {', '.join(user_skills)} ให้แนะนำการต่อยอดจากทักษะเหล่านี้"
+        
+        if user_languages:
+            prompt += f"\n13. ผู้ใช้เชี่ยวชาญภาษา {', '.join(user_languages)} ให้แนะนำการพัฒนาต่อยอดจากภาษาเหล่านี้"
 
     # ปรับ prompt ตามประเภทคำถาม
     if is_resume_question and job_name and is_salary_question:
@@ -561,8 +611,80 @@ async def chat_with_combined_context(
     """
     
     # ส่ง prompt ไปยัง LLM
-    return await generate_response(prompt, personality=personality, use_fine_tuned=use_fine_tuned)
+    return await generate_response(prompt, personality=personality, use_fine_tuned=use_fine_tuned, user_context=user_context)
 
+
+def _format_answer_with_personality(response: str, user_context: Optional[Dict[str, Any]], personality: PersonalityType) -> str:
+    """
+    ปรับแต่งคำตอบให้เข้ากับบุคลิกและข้อมูลผู้ใช้
+    
+    Args:
+        response: คำตอบจาก LLM
+        user_context: ข้อมูลผู้ใช้ (ถ้ามี)
+        personality: บุคลิกของ AI
+        
+    Returns:
+        str: คำตอบที่ปรับแต่งแล้ว
+    """
+    # ถ้าไม่มีข้อมูลผู้ใช้ ส่งคืนคำตอบเดิม
+    if not user_context:
+        return response
+    
+    user_name = user_context.get('name', '')
+    if not user_name:
+        return response
+    
+    # ถ้ามีชื่อผู้ใช้ ให้ปรับการทักทายตามบุคลิก
+    if personality == PersonalityType.FORMAL:
+        # ตรวจสอบว่ามีการทักทายหรือไม่
+        if not any(greeting in response[:50].lower() for greeting in ["เรียน", "สวัสดี", "ขอความเคารพ"]):
+            return f"เรียน คุณ{user_name}\n\n{response}"
+    
+    elif personality == PersonalityType.FRIENDLY:
+        # ตรวจสอบว่ามีการทักทายหรือไม่
+        if not any(greeting in response[:30].lower() for greeting in ["สวัสดี", "หวัดดี", "ฮัลโหล"]):
+            return f"สวัสดี {user_name}! \n\n{response}"
+    
+    elif personality == PersonalityType.FUN:
+        # ตรวจสอบว่ามีการทักทายแบบ FUN หรือไม่
+        if "น้าบอุเทอ" not in response[:50]:
+            return f"น้าบอุเทอ {user_name} เขาตอบให้น้า! \n\n{response}"
+    
+    return response
+# เพิ่มฟังก์ชัน: src/utils/llm.py
+
+
+async def _call_llm_api(payload: Dict[str, Any], headers: Dict[str, str], timeout: float) -> Dict[str, Any]:
+    """
+    เรียกใช้ LLM API
+    
+    Args:
+        payload: ข้อมูลที่ส่งไปยัง API
+        headers: headers สำหรับ HTTP request
+        timeout: เวลาที่รอคำตอบสูงสุด (วินาที)
+        
+    Returns:
+        Dict[str, Any]: ผลลัพธ์จาก API
+    """
+    logger.info(f"ส่งคำขอไปยัง LLM API: {LLM_API_BASE}")
+    
+    # ส่งคำขอไปยัง LLM API
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{LLM_API_BASE}/api/generate",
+            json=payload,
+            headers=headers,
+            timeout=timeout
+        )
+        
+        # ตรวจสอบสถานะการตอบกลับ
+        if response.status_code == 200:
+            result = response.json()
+            return result
+        else:
+            logger.error(f"LLM API ตอบกลับด้วย status code: {response.status_code}, {response.text}")
+            return {"response": f"เกิดข้อผิดพลาดในการเรียกใช้ LLM API: HTTP {response.status_code}"}
+        
 # Testing
 if __name__ == "__main__":
     async def test():
