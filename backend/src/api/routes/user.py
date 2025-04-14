@@ -32,23 +32,18 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-@router.get("/", response_model=List[UserSummary])
-async def get_users():
+@router.get("/", response_model=User)
+async def get_user_info():
     """
-    ดึงรายชื่อผู้ใช้ทั้งหมด (มีเพียงผู้ใช้เดียว)
+    ดึงข้อมูลผู้ใช้
     
     Returns:
-        List[UserSummary]: รายชื่อผู้ใช้
+        User: ข้อมูลผู้ใช้
     """
     user = get_app_user()
-    if user:
-        return [UserSummary.parse_obj({
-            "id": user.id,
-            "name": user.name,
-            "institution": user.institution,
-            "education_status": user.education_status
-        })]
-    return []
+    if not user:
+        raise HTTPException(status_code=404, detail="ไม่พบข้อมูลผู้ใช้")
+    return user
 
 @router.post("/", response_model=User)
 async def create_new_user(
@@ -198,8 +193,8 @@ async def get_default_user():
         raise HTTPException(status_code=404, detail="ไม่พบข้อมูลผู้ใช้")
     return user
 
-@router.patch("/default", response_model=User)
-async def update_default_user(user_data: UserUpdate):
+@router.patch("/", response_model=User)
+async def update_user_info(user_data: UserUpdate):
     """
     อัปเดตข้อมูลผู้ใช้
     
@@ -213,6 +208,28 @@ async def update_default_user(user_data: UserUpdate):
     if not user:
         raise HTTPException(status_code=404, detail="ไม่พบข้อมูลผู้ใช้หรือไม่สามารถอัปเดตได้")
     return user
+
+@router.delete("/")
+async def delete_user_info():
+    """
+    ลบข้อมูลผู้ใช้
+    
+    Returns:
+        Dict[str, Any]: ผลลัพธ์การลบผู้ใช้
+    """
+    # ตรวจสอบก่อนว่ามีผู้ใช้หรือไม่
+    user = get_app_user()
+    if not user:
+        raise HTTPException(status_code=404, detail="ไม่พบข้อมูลผู้ใช้")
+    
+    # ลบข้อมูลผู้ใช้
+    from src.utils.storage import delete_app_user
+    success = delete_app_user()
+    
+    if not success:
+        raise HTTPException(status_code=500, detail="เกิดข้อผิดพลาดในการลบข้อมูลผู้ใช้")
+    
+    return {"message": "ลบข้อมูลผู้ใช้เรียบร้อยแล้ว"}
 
 @router.get("/user-status")
 async def check_user_status():

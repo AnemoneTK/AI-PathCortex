@@ -163,9 +163,8 @@ async def search_jobs(
         logger.error(f"เกิดข้อผิดพลาดในการค้นหาอาชีพ: {str(e)}")
         raise HTTPException(status_code=500, detail=f"เกิดข้อผิดพลาดในการค้นหาอาชีพ: {str(e)}")
 
-@router.get("/recommend/for-user/{user_id}", response_model=List[JobSummary])
+@router.get("/recommend/for-user", response_model=List[JobSummary])
 async def recommend_jobs_for_user(
-    user_id: str = Path(..., description="รหัสผู้ใช้"),
     limit: int = Query(5, description="จำนวนอาชีพที่แนะนำ", ge=1, le=20),
     vector_search: VectorSearch = Depends(get_vector_search),
 ):
@@ -182,10 +181,10 @@ async def recommend_jobs_for_user(
     """
     try:
         # ดึงข้อมูลผู้ใช้
-        from src.utils.storage import get_user
-        user = get_user(user_id)
+        from src.utils.storage import get_app_user
+        user = get_app_user()
         if not user:
-            raise HTTPException(status_code=404, detail=f"ไม่พบผู้ใช้ {user_id}")
+            raise HTTPException(status_code=404, detail=f"ไม่พบข้อมูลผู้ใช้")
         
         # สร้างคำค้นหาจากข้อมูลผู้ใช้
         search_terms = []

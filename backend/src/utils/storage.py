@@ -369,3 +369,22 @@ def get_user(user_id: str) -> Optional[User]:
     if user_id == "app_user":
         return get_app_user()
     return None
+
+def delete_app_user() -> bool:
+    """
+    ลบข้อมูลผู้ใช้
+    
+    Returns:
+        bool: สถานะความสำเร็จ
+    """
+    try:
+        if os.path.exists(USER_FILE):
+            os.remove(USER_FILE)
+            logger.info("ลบข้อมูลผู้ใช้สำเร็จ")
+            return True
+        else:
+            logger.warning("ไม่พบไฟล์ข้อมูลผู้ใช้ที่จะลบ")
+            return False
+    except Exception as e:
+        logger.error(f"เกิดข้อผิดพลาดในการลบข้อมูลผู้ใช้: {str(e)}")
+        return False
