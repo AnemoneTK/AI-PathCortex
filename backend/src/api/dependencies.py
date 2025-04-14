@@ -13,6 +13,7 @@ from fastapi.security import APIKeyHeader
 from src.utils.config import API_KEY
 from src.utils.logger import get_logger
 from src.utils.vector_search import VectorSearch
+from src.utils.storage import get_app_user
 
 # ตั้งค่า logger
 logger = get_logger("api.dependencies")
@@ -65,37 +66,25 @@ def get_vector_search_dependency():
             detail=f"เกิดข้อผิดพลาดในการสร้าง VectorSearch: {str(e)}",
         )
 
-async def get_user_from_header(x_user_id: Optional[str] = Header(None)):
+async def get_user_from_header():
     """
     ดึงข้อมูลผู้ใช้จาก header
     
-    Args:
-        x_user_id: รหัสผู้ใช้จาก header
-        
     Returns:
         Optional[Dict[str, Any]]: ข้อมูลผู้ใช้ หรือ None ถ้าไม่พบ
     """
-    if not x_user_id:
-        return None
-    
-    # ดึงข้อมูลผู้ใช้
-    from src.utils.storage import get_user
-    user = get_user(x_user_id)
-    
+    # สำหรับแอปพลิเคชันนี้ใช้ผู้ใช้เดียว
+    user = get_app_user()
     return user
 
 async def common_parameters(
     personality: Optional[str] = Header(None),
-    x_user_id: Optional[str] = Header(None),
-    x_chat_id: Optional[str] = Header(None),
 ):
     """
     พารามิเตอร์ที่ใช้ร่วมกันสำหรับหลาย API endpoints
     
     Args:
         personality: รูปแบบบุคลิกของ AI จาก header
-        x_user_id: รหัสผู้ใช้จาก header
-        x_chat_id: รหัสการสนทนาจาก header
         
     Returns:
         Dict[str, Any]: พารามิเตอร์ที่ใช้ร่วมกัน
@@ -113,6 +102,4 @@ async def common_parameters(
     
     return {
         "personality": personality,
-        "user_id": x_user_id,
-        "chat_id": x_chat_id,
     }

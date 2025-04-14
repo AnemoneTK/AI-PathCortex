@@ -369,4 +369,3 @@ def get_user(user_id: str) -> Optional[User]:
     if user_id == "app_user":
         return get_app_user()
     return None
-

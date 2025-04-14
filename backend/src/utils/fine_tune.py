@@ -26,7 +26,7 @@ from src.utils.config import (
     PersonalityType
 )
 from src.utils.logger import get_logger
-from src.utils.storage import get_all_users
+from src.utils.storage import get_app_user
 
 # ตั้งค่า logger
 logger = get_logger("fine_tune")
@@ -108,7 +108,7 @@ class FineTuneHelper:
             logger.info(f"โหลดข้อมูลคำแนะนำอาชีพสำเร็จ: {len(career_advice_data)} รายการ")
             
         # โหลดข้อมูลผู้ใช้
-        user_data = get_all_users()
+        user_data = get_app_user()
         logger.info(f"โหลดข้อมูลผู้ใช้สำเร็จ: {len(user_data)} รายการ")
         
         return job_data, career_advice_data, user_data

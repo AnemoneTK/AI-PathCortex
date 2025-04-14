@@ -99,7 +99,6 @@ async def ask_question(
             search_results = vector_search.search_combined(request.query, limit=5)
             
             # เพิ่มคีย์ type ถ้าไม่มี
-            print("Search Results Structure:")
             for result in search_results:
                 result["type"] = result.get("type", result.get("content", {}).get("type", "unknown"))
         else:
