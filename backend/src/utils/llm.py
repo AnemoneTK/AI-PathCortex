@@ -8,7 +8,7 @@ This module provides functions for interacting with large language models.
 
 import asyncio
 import json
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 import httpx
 
 from src.utils.config import LLM_MODEL, LLM_API_BASE, LLM_API_KEY, PersonalityType
@@ -359,7 +359,7 @@ async def chat_with_job_context(
 
 async def chat_with_combined_context(
     query: str,
-    search_results: List[Dict[str, Any]],
+    search_results: Union[List[Dict[str, Any]], List[str]],
     user_context: Optional[Dict[str, Any]] = None,
     personality: PersonalityType = PersonalityType.FRIENDLY,
     use_fine_tuned: Optional[bool] = None
@@ -367,7 +367,24 @@ async def chat_with_combined_context(
     """
     สนทนากับ LLM โดยใช้บริบทรวมจากการค้นหา
     """
-    # เพิ่มข้อมูลการแสดงผล
+    # เพิ่มตรงนี้
+    if search_results and isinstance(search_results[0], str):
+        search_results = [json.loads(result) for result in search_results]
+    print("==== DEBUG INFO ====")
+    print(f"Type of search_results: {type(search_results)}")
+    if search_results:
+        print(f"Type of first result: {type(search_results[0])}")
+        print(f"First result: {search_results[0][:100] if isinstance(search_results[0], str) else str(search_results[0])[:100]}...")
+    print("====================")
+
+    # เพิ่ม defensive code
+    if search_results and all(isinstance(result, str) for result in search_results):
+        try:
+            search_results = [json.loads(result) for result in search_results]
+            print("Converted string results to dictionaries")
+        except Exception as e:
+            print(f"Error converting string results: {e}")
+
     print(f"==== COMBINED CONTEXT INFO ====")
     print(f"Query: {query}")
     print(f"Search results available: {len(search_results)}")
@@ -381,7 +398,7 @@ async def chat_with_combined_context(
     job_results = []
     advice_results = []
     user_results = []
-    
+
     for result in search_results:
         if result["type"] == "job":
             job_results.append(result)

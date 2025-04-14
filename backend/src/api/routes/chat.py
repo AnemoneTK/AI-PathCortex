@@ -6,7 +6,7 @@ Chat routes for the Career AI Advisor API.
 This module defines the routes for interacting with the AI.
 """
 
-import os
+import json
 import uuid
 from typing import List, Dict, Any, Optional
 from datetime import datetime 
@@ -95,12 +95,14 @@ async def ask_question(
         search_results = []
         
         if request.use_combined_search:
-            # ใช้การค้นหาแบบรวม
-            search_results = vector_search.search_combined(request.query, limit=5)
-            
-            # เพิ่มคีย์ type ถ้าไม่มี
-            for result in search_results:
-                result["type"] = result.get("type", result.get("content", {}).get("type", "unknown"))
+            search_results_str = [json.dumps(result) for result in search_results]
+            response_text = await chat_with_combined_context(
+                request.query,
+                search_results_str,  # ส่งเป็น string
+                user_context,
+                request.personality,
+                request.use_fine_tuned
+            )
         else:
             # ใช้การค้นหาแบบแยกประเภท
             job_results = vector_search.search_jobs(request.query, limit=3)
@@ -120,6 +122,7 @@ async def ask_question(
         
         # สร้างคำตอบ
         if request.use_combined_search:
+            # ส่ง search_results โดยตรง ไม่ต้องแปลงเป็น string
             response_text = await chat_with_combined_context(
                 request.query,
                 search_results,

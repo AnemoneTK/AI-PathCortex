@@ -371,16 +371,14 @@ const removeTag = (type, tag) => {
             ? skill.name 
             : skill
         ), 
-        programming_languages: userData.programmingLanguages.map(lang => 
-          typeof lang === 'object' 
-            ? lang.name 
-            : lang
-        ),
-        tools: userData.tools.map(tool => 
-          typeof tool === 'object' 
-            ? tool.name 
-            : tool
-        ),
+        programming_languages: userData.programmingLanguages.map((lang) => ({
+          name: typeof lang === 'object' ? lang.name : lang,
+          proficiency: typeof lang === 'object' ? lang.proficiency : 4,
+        })),
+        tools: userData.tools.map((tool) => ({
+          name: typeof tool === 'object' ? tool.name : tool,
+          proficiency: typeof tool === 'object' ? tool.proficiency : 4,
+        })),
         projects: userData.projects.map((project) => ({
           name: project.name,
           description: project.description,
