@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from src.utils.llm import chat_with_job_context, chat_with_combined_context
 from src.utils.vector_search import VectorSearch
 from src.utils.config import PersonalityType, VECTOR_DB_DIR
-from src.utils.storage import get_user, save_chat_history
+from src.utils.storage import get_app_user, create_chat_message, save_chat_history
 from src.api.models import ChatHistory, ChatMessage
 from src.utils.logger import get_logger
 
@@ -40,7 +40,6 @@ except Exception as e:
 # คลาสสำหรับรับข้อมูลคำถาม
 class ChatRequest(BaseModel):
     query: str
-    user_id: Optional[str] = None
     personality: Optional[PersonalityType] = PersonalityType.FRIENDLY
     use_combined_search: bool = True
     use_fine_tuned: bool = False
@@ -52,13 +51,12 @@ class ChatResponse(BaseModel):
     personality: PersonalityType
     user_context: Optional[Dict[str, Any]] = None
 
-# คลาสสำหรับ query_chat (เพิ่มใหม่)
+# คลาสสำหรับ query_chat
 class ChatQuery(BaseModel):
     text: str
-    user_id: Optional[str] = None
     personality: PersonalityType = PersonalityType.FRIENDLY
 
-# คลาสสำหรับส่งคำตอบจาก query_chat (เพิ่มใหม่)
+# คลาสสำหรับส่งคำตอบจาก query_chat
 class QueryChatResponse(BaseModel):
     id: str
     text: str
@@ -87,12 +85,11 @@ async def ask_question(
         if not request.query:
             raise HTTPException(status_code=400, detail="กรุณาระบุคำถาม")
         
-        # ดึงข้อมูลผู้ใช้ (ถ้ามี)
+        # ดึงข้อมูลผู้ใช้
         user_context = None
-        if request.user_id:
-            user = get_user(request.user_id)
-            if user:
-                user_context = user.dict()
+        user = get_app_user()
+        if user:
+            user_context = user.dict()
         
         # ค้นหาข้อมูลที่เกี่ยวข้อง
         search_results = []
@@ -141,45 +138,19 @@ async def ask_question(
                 request.use_fine_tuned
             )
         
-        # บันทึกประวัติการสนทนา
-        chat_id = str(uuid.uuid4())
-        timestamp = datetime.now().isoformat()
-        
-        chat_history = ChatHistory(
-            id=chat_id,
-            user_id=request.user_id,
-            timestamp=timestamp,
-            messages=[
-                ChatMessage(role="user", content=request.query),
-                ChatMessage(role="assistant", content=response_text)
-            ]
-        )
+        # สร้างและบันทึกประวัติการสนทนา
+        chat_history = create_chat_message(request.query, response_text)
         
         # บันทึกประวัติในพื้นหลัง
         background_tasks.add_task(save_chat_history, chat_history)
         
         # สร้าง response
-        # สร้าง response
-        response = ChatResponse(
+        return ChatResponse(
             response=response_text,
             search_results=search_results,
             personality=request.personality,
             user_context=user_context
         )
-        
-        # เพิ่มข้อมูลระบบในส่วนเริ่มต้นของข้อความตอบกลับ
-        debug_info = f"""
-[DEBUG INFO]
-- Using fine-tuned model: {request.use_fine_tuned}
-- Personality: {request.personality.value}
-- User context: {'Available' if user_context else 'Not available'} 
-- Found {len(search_results)} relevant results
-
-"""
-        # แก้ไขข้อความตอบกลับโดยเพิ่มข้อมูล debug
-        response.response =  response.response
-        
-        return response
         
     except Exception as e:
         logger.error(f"เกิดข้อผิดพลาดในการสร้างคำตอบ: {str(e)}")
@@ -195,26 +166,23 @@ async def get_personalities():
     """
     return [p.value for p in PersonalityType]
 
-@router.get("/history/{user_id}", response_model=List[ChatHistory])
-async def get_user_chat_history(user_id: str = Path(..., description="รหัสผู้ใช้")):
+@router.get("/history", response_model=List[ChatHistory])
+async def get_user_chat_history(
+    limit: int = Query(10, description="จำนวนประวัติการสนทนาที่ต้องการ", ge=1, le=100)
+):
     """
     ดึงประวัติการสนทนาของผู้ใช้
     
     Args:
-        user_id: รหัสผู้ใช้
+        limit: จำนวนประวัติการสนทนาที่ต้องการ
         
     Returns:
         List[ChatHistory]: รายการประวัติการสนทนา
     """
     from src.utils.storage import get_chat_history
     
-    # ตรวจสอบว่ามีผู้ใช้หรือไม่
-    user = get_user(user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail=f"ไม่พบผู้ใช้ {user_id}")
-    
     # ดึงประวัติการสนทนา
-    history = get_chat_history(user_id)
+    history = get_chat_history(limit=limit)
     return history
 
 @router.post("/query", response_model=QueryChatResponse)
@@ -223,20 +191,19 @@ async def query_chat(query: ChatQuery):
     ส่งคำถามไปยัง LLM และรับคำตอบกลับมา
     
     Args:
-        query: คำถามและบริบทต่างๆ
+        query: คำถามและบุคลิกของ AI
         
     Returns:
         QueryChatResponse: คำตอบจาก LLM
     """
     try:
+        # ดึงข้อมูลผู้ใช้
         user_context = None
-        if query.user_id:
-            user = get_user(query.user_id)
-            if user:
-                user_context = user.dict()
+        user = get_app_user()
+        if user:
+            user_context = user.dict()
         
-        # ใช้ VectorSearch เพื่อค้นหาข้อมูลที่เกี่ยวข้อง
-        # ใช้ตัวแปร vector_search ที่สร้างไว้แล้วด้านบน แทนการสร้างใหม่
+        # ตรวจสอบ VectorSearch
         if vector_search is None:
             raise HTTPException(status_code=500, detail="ระบบค้นหาข้อมูลไม่พร้อมใช้งาน")
         
@@ -262,7 +229,7 @@ async def query_chat(query: ChatQuery):
         
         chat_history = ChatHistory(
             id=chat_id,
-            user_id=query.user_id,
+            user_id="app_user",
             timestamp=timestamp,
             messages=[
                 ChatMessage(role="user", content=query.text),

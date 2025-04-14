@@ -26,14 +26,15 @@ const UserRegistration = () => {
       institution: "",
     },
     skills: [],
-    programmingLanguages: [],
-    tools: [],
+    programmingLanguages: [], // เปลี่ยนจาก array ของ string เป็น array ของ object
+    tools: [], // เปลี่ยนจาก array ของ string เป็น array ของ object
     projects: [],
     resume: null,
   });
 
   // Input field for adding new tags (skills, languages, tools)
-  const [tagInput, setTagInput] = useState('');
+  const [tagInput, setTagInput] = useState({ name: '', proficiency: 4 });
+  const [showProficiencySlider, setShowProficiencySlider] = useState(false);
   const [filteredOptions, setFilteredOptions] = useState([]);
   const [selectedTagType, setSelectedTagType] = useState('skills');
 
@@ -173,15 +174,20 @@ const UserRegistration = () => {
   // Handle tag input changes
   const handleTagInputChange = (e) => {
     const input = e.target.value;
-    setTagInput(input);
-
+    setTagInput({
+      ...tagInput,
+      name: input
+    });
+  
     // Filter options based on input
     if (input.trim() !== "") {
       const options = predefinedOptions[selectedTagType];
       const filtered = options.filter(
         (option) =>
           option.toLowerCase().includes(input.toLowerCase()) &&
-          !userData[selectedTagType].includes(option)
+          !userData[selectedTagType].some(skill => 
+            typeof skill === 'object' ? skill.name === option : skill === option
+          )
       );
       setFilteredOptions(filtered);
     } else {
@@ -190,47 +196,95 @@ const UserRegistration = () => {
   };
 
   // Add a new tag (skill, language, or tool)
-  const addTag = () => {
-    if (tagInput.trim() === "") return;
+const addTag = () => {
+  if (tagInput.name.trim() === "") return;
 
-    if (!userData[selectedTagType].includes(tagInput.trim())) {
+  if (selectedTagType === "skills") {
+    if (!userData.skills.some(skill => typeof skill === 'object' ? skill.name === tagInput.name : skill === tagInput.name)) {
       setUserData({
         ...userData,
-        [selectedTagType]: [...userData[selectedTagType], tagInput.trim()],
+        skills: [...userData.skills, { name: tagInput.name, proficiency: tagInput.proficiency }]
       });
-      setTagInput("");
-      setFilteredOptions([]);
     }
-  };
+  } else if (selectedTagType === "programmingLanguages") {
+    if (!userData.programmingLanguages.some(lang => typeof lang === 'object' ? lang.name === tagInput.name : lang === tagInput.name)) {
+      setUserData({
+        ...userData,
+        programmingLanguages: [...userData.programmingLanguages, { name: tagInput.name, proficiency: tagInput.proficiency }]
+      });
+    }
+  } else if (selectedTagType === "tools") {
+    if (!userData.tools.some(tool => typeof tool === 'object' ? tool.name === tagInput.name : tool === tagInput.name)) {
+      setUserData({
+        ...userData,
+        tools: [...userData.tools, { name: tagInput.name, proficiency: tagInput.proficiency }]
+      });
+    }
+  }
+
+  setTagInput({ name: '', proficiency: 4 });
+  setFilteredOptions([]);
+  setShowProficiencySlider(false);
+};
 
   // Add a tag from suggestions
-  const addSuggestedTag = (tag) => {
-    if (!userData[selectedTagType].includes(tag)) {
-      setUserData({
-        ...userData,
-        [selectedTagType]: [...userData[selectedTagType], tag],
-      });
-      setTagInput("");
-      setFilteredOptions([]);
+const addSuggestedTag = (tag) => {
+  if (selectedTagType === "skills") {
+    if (!userData.skills.some(skill => typeof skill === 'object' ? skill.name === tag : skill === tag)) {
+      setTagInput({ name: tag, proficiency: 4 });
+      setShowProficiencySlider(true);
     }
-  };
+  } else if (selectedTagType === "programmingLanguages") {
+    if (!userData.programmingLanguages.some(lang => typeof lang === 'object' ? lang.name === tag : lang === tag)) {
+      setTagInput({ name: tag, proficiency: 4 });
+      setShowProficiencySlider(true);
+    }
+  } else if (selectedTagType === "tools") {
+    if (!userData.tools.some(tool => typeof tool === 'object' ? tool.name === tag : tool === tag)) {
+      setTagInput({ name: tag, proficiency: 4 });
+      setShowProficiencySlider(true);
+    }
+  }
+};
+
 
   // Remove a tag
-  const removeTag = (type, tag) => {
+const removeTag = (type, tag) => {
+  if (type === "skills") {
     setUserData({
       ...userData,
-      [type]: userData[type].filter((item) => item !== tag),
+      skills: userData.skills.filter(skill => 
+        typeof skill === 'object' && typeof tag === 'object' 
+          ? skill.name !== tag.name 
+          : typeof skill === 'string' && typeof tag === 'string'
+            ? skill !== tag
+            : true
+      )
     });
-  };
-
-  // Handle project field changes
-  const handleProjectChange = (e) => {
-    const { name, value } = e.target;
-    setCurrentProject({
-      ...currentProject,
-      [name]: value,
+  } else if (type === "programmingLanguages") {
+    setUserData({
+      ...userData,
+      programmingLanguages: userData.programmingLanguages.filter(lang => 
+        typeof lang === 'object' && typeof tag === 'object' 
+          ? lang.name !== tag.name 
+          : typeof lang === 'string' && typeof tag === 'string'
+            ? lang !== tag
+            : true
+      )
     });
-  };
+  } else if (type === "tools") {
+    setUserData({
+      ...userData,
+      tools: userData.tools.filter(tool => 
+        typeof tool === 'object' && typeof tag === 'object' 
+          ? tool.name !== tag.name 
+          : typeof tool === 'string' && typeof tag === 'string'
+            ? tool !== tag
+            : true
+      )
+    });
+  }
+};
 
   // Add technology to current project
   const addProjectTech = () => {
@@ -477,158 +531,219 @@ const UserRegistration = () => {
           </div>
         );
 
-      case 2:
-        return (
-          <div className="w-full max-w-md">
-            <div className="flex items-center mb-6">
-              <div className="p-2 bg-blue-100 rounded-full mr-4">
-                <Code className="h-6 w-6 text-blue-600" />
+        case 2:
+          return (
+            <div className="w-full max-w-md">
+              <div className="flex items-center mb-6">
+                <div className="p-2 bg-blue-100 rounded-full mr-4">
+                  <Code className="h-6 w-6 text-blue-600" />
+                </div>
+                <h2 className="text-xl font-semibold">ทักษะและความสามารถ</h2>
               </div>
-              <h2 className="text-xl font-semibold">ทักษะและความสามารถ</h2>
-            </div>
-
-            <div className="mb-6">
-              <div className="flex space-x-2 mb-2">
-                <button
-                  className={`px-3 py-1 rounded-full text-sm ${
-                    selectedTagType === "skills"
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-200 text-gray-700"
-                  }`}
-                  onClick={() => setSelectedTagType("skills")}
-                >
-                  ทักษะ
-                </button>
-                <button
-                  className={`px-3 py-1 rounded-full text-sm ${
-                    selectedTagType === "programmingLanguages"
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-200 text-gray-700"
-                  }`}
-                  onClick={() => setSelectedTagType("programmingLanguages")}
-                >
-                  ภาษาโปรแกรม
-                </button>
-                <button
-                  className={`px-3 py-1 rounded-full text-sm ${
-                    selectedTagType === "tools"
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-200 text-gray-700"
-                  }`}
-                  onClick={() => setSelectedTagType("tools")}
-                >
-                  เครื่องมือ
-                </button>
-              </div>
-
-              <div className="relative mb-2">
-                <div className="flex">
-                  <input
-                    type="text"
-                    value={tagInput}
-                    onChange={handleTagInputChange}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder={
-                      selectedTagType === "skills"
-                        ? "พิมพ์เพื่อค้นหาหรือเพิ่มทักษะ"
-                        : selectedTagType === "programmingLanguages"
-                        ? "พิมพ์เพื่อค้นหาหรือเพิ่มภาษาโปรแกรม"
-                        : "พิมพ์เพื่อค้นหาหรือเพิ่มเครื่องมือ"
-                    }
-                    onKeyPress={(e) => e.key === "Enter" && addTag()}
-                  />
+        
+              <div className="mb-6">
+                <div className="flex space-x-2 mb-2">
                   <button
-                    className="px-3 py-2 bg-blue-600 text-white rounded-r-lg hover:bg-blue-700 transition-colors"
-                    onClick={addTag}
+                    className={`px-3 py-1 rounded-full text-sm ${
+                      selectedTagType === "skills"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-200 text-gray-700"
+                    }`}
+                    onClick={() => setSelectedTagType("skills")}
                   >
-                    เพิ่ม
+                    ทักษะ
+                  </button>
+                  <button
+                    className={`px-3 py-1 rounded-full text-sm ${
+                      selectedTagType === "programmingLanguages"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-200 text-gray-700"
+                    }`}
+                    onClick={() => setSelectedTagType("programmingLanguages")}
+                  >
+                    ภาษาโปรแกรม
+                  </button>
+                  <button
+                    className={`px-3 py-1 rounded-full text-sm ${
+                      selectedTagType === "tools"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-200 text-gray-700"
+                    }`}
+                    onClick={() => setSelectedTagType("tools")}
+                  >
+                    เครื่องมือ
                   </button>
                 </div>
-
-                {/* Suggestions dropdown */}
-                {filteredOptions.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
-                    {filteredOptions.map((option, index) => (
-                      <div
-                        key={index}
-                        className="px-3 py-2 hover:bg-blue-50 cursor-pointer"
-                        onClick={() => addSuggestedTag(option)}
-                      >
-                        {option}
-                      </div>
-                    ))}
+        
+                <div className="relative mb-2">
+                  <div className="flex">
+                    <input
+                      type="text"
+                      value={tagInput.name}
+                      onChange={handleTagInputChange}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder={
+                        selectedTagType === "skills"
+                          ? "พิมพ์เพื่อค้นหาหรือเพิ่มทักษะ"
+                          : selectedTagType === "programmingLanguages"
+                          ? "พิมพ์เพื่อค้นหาหรือเพิ่มภาษาโปรแกรม"
+                          : "พิมพ์เพื่อค้นหาหรือเพิ่มเครื่องมือ"
+                      }
+                      onKeyPress={(e) => e.key === "Enter" && (showProficiencySlider ? addTag() : setShowProficiencySlider(true))}
+                    />
+                    <button
+                      className="px-3 py-2 bg-blue-600 text-white rounded-r-lg hover:bg-blue-700 transition-colors"
+                      onClick={() => showProficiencySlider ? addTag() : setShowProficiencySlider(true)}
+                    >
+                      {showProficiencySlider ? "เพิ่ม" : "ต่อไป"}
+                    </button>
                   </div>
-                )}
-              </div>
-
-              {/* Popular suggestions */}
-              <div className="mb-3">
-                <p className="text-sm text-gray-500 mb-2">ตัวเลือกยอดนิยม:</p>
-                <div className="flex flex-wrap gap-2">
-                  {predefinedOptions[selectedTagType]
-                    .slice(0, 6)
-                    .map((option, index) =>
-                      userData[selectedTagType].includes(option) ? null : (
-                        <button
+        
+                  {/* Suggestions dropdown */}
+                  {filteredOptions.length > 0 && !showProficiencySlider && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
+                      {filteredOptions.map((option, index) => (
+                        <div
                           key={index}
-                          className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm hover:bg-gray-200"
+                          className="px-3 py-2 hover:bg-blue-50 cursor-pointer"
                           onClick={() => addSuggestedTag(option)}
                         >
                           {option}
-                        </button>
-                      )
-                    )}
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <p className="text-sm font-medium text-gray-700 mb-2">
-                  {selectedTagType === "skills"
-                    ? "ทักษะของคุณ"
-                    : selectedTagType === "programmingLanguages"
-                    ? "ภาษาโปรแกรมที่คุณเขียนได้"
-                    : "เครื่องมือที่คุณใช้งานได้"}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {userData[selectedTagType].map((tag, index) => (
-                    <div
-                      key={index}
-                      className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full flex items-center"
-                    >
-                      <span>{tag}</span>
-                      <button
-                        className="ml-2 text-blue-500 hover:text-blue-700"
-                        onClick={() => removeTag(selectedTagType, tag)}
-                      >
-                        <X size={16} />
-                      </button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                  {userData[selectedTagType].length === 0 && (
-                    <p className="text-sm text-gray-500 italic">
-                      ยังไม่มีรายการ
-                    </p>
                   )}
                 </div>
-              </div>
-
-              <div className="flex justify-between mt-8">
-                <button
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  onClick={prevStep}
-                >
-                  ย้อนกลับ
-                </button>
-                <button
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  onClick={nextStep}
-                >
-                  ถัดไป
-                </button>
+        
+                {/* Proficiency slider */}
+                {showProficiencySlider && (
+                  <div className="mt-2 mb-4 bg-gray-50 p-3 rounded-lg">
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                      ระดับความชำนาญของ "{tagInput.name}" (1-5)
+                    </label>
+                    <div className="flex items-center mb-1">
+                      <span className="text-xs text-gray-500 mr-2">น้อย</span>
+                      <input
+                        type="range"
+                        min="1"
+                        max="5"
+                        value={tagInput.proficiency}
+                        onChange={(e) => setTagInput({...tagInput, proficiency: parseInt(e.target.value)})}
+                        className="flex-1"
+                      />
+                      <span className="text-xs text-gray-500 ml-2">มาก</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <div className="flex">
+                        {[1, 2, 3, 4, 5].map(num => (
+                          <span key={num} className="px-2">{num}</span>
+                        ))}
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => setShowProficiencySlider(false)}
+                          className="px-3 py-1 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-100"
+                        >
+                          ยกเลิก
+                        </button>
+                        <button
+                          onClick={addTag}
+                          className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                        >
+                          เพิ่ม
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+        
+                {/* Popular suggestions */}
+                {!showProficiencySlider && (
+                  <div className="mb-3">
+                    <p className="text-sm text-gray-500 mb-2">ตัวเลือกยอดนิยม:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {predefinedOptions[selectedTagType]
+                        .slice(0, 6)
+                        .map((option, index) => {
+                          // ตรวจสอบว่ามีในรายการแล้วหรือไม่
+                          const alreadyAdded = userData[selectedTagType].some(item => 
+                            typeof item === 'object' ? item.name === option : item === option
+                          );
+                          
+                          if (alreadyAdded) return null;
+                          
+                          return (
+                            <button
+                              key={index}
+                              className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm hover:bg-gray-200"
+                              onClick={() => addSuggestedTag(option)}
+                            >
+                              {option}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+        
+                <div className="mb-4">
+                  <p className="text-sm font-medium text-gray-700 mb-2">
+                    {selectedTagType === "skills"
+                      ? "ทักษะของคุณ"
+                      : selectedTagType === "programmingLanguages"
+                      ? "ภาษาโปรแกรมที่คุณเขียนได้"
+                      : "เครื่องมือที่คุณใช้งานได้"}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {userData[selectedTagType].map((tag, index) => (
+                      <div
+                        key={index}
+                        className={`px-3 py-1 rounded-full flex items-center ${
+                          selectedTagType === "skills" 
+                            ? "bg-blue-100 text-blue-800" 
+                            : selectedTagType === "programmingLanguages"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-purple-100 text-purple-800"
+                        }`}
+                      >
+                        <span>
+                          {typeof tag === 'object' 
+                            ? `${tag.name} (${tag.proficiency})` 
+                            : tag}
+                        </span>
+                        <button
+                          className="ml-2 text-gray-500 hover:text-gray-700"
+                          onClick={() => removeTag(selectedTagType, tag)}
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ))}
+                    {userData[selectedTagType].length === 0 && (
+                      <p className="text-sm text-gray-500 italic">
+                        ยังไม่มีรายการ
+                      </p>
+                    )}
+                  </div>
+                </div>
+        
+                <div className="flex justify-between mt-8">
+                  <button
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    onClick={prevStep}
+                  >
+                    ย้อนกลับ
+                  </button>
+                  <button
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    onClick={nextStep}
+                  >
+                    ถัดไป
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        );
+          );
 
       case 3:
         return (
