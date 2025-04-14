@@ -153,13 +153,14 @@ async def create_new_user(
             user.tools = user_data.tools
             user.projects = user_data.projects
             user.work_experiences = user_data.work_experiences
-            save_app_user(user)
+            user.updated_at = datetime.now().isoformat()
+            if not save_app_user(user):
+                raise HTTPException(status_code=500, detail="ไม่สามารถอัปเดตข้อมูลผู้ใช้ได้")
         else:
             # สร้างผู้ใช้ใหม่
             user = create_app_user(user_data)
-        
-        if not user:
-            raise HTTPException(status_code=500, detail="ไม่สามารถสร้างหรืออัปเดตผู้ใช้ได้")
+            if not user:
+                raise HTTPException(status_code=500, detail="ไม่สามารถสร้างผู้ใช้ได้")
         
         # บันทึก resume ถ้ามี
         if resume:

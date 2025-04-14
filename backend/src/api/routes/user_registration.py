@@ -112,8 +112,8 @@ async def register_user(
             education_status=education_status,
             year=user_dict.get('year', 1),
             skills=skills,
-            programming_languages=programming_languages_with_proficiency, 
-            tools=tools_with_proficiency,  
+            programming_languages=user_dict.get('programming_languages', []),
+            tools=user_dict.get('tools', []),
             projects=projects,
             work_experiences=work_experiences
         )

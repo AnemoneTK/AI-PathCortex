@@ -299,6 +299,18 @@ const removeTag = (type, tag) => {
     }
   };
 
+  const handleProjectChange = (e) => {
+    const { name, value } = e.target;
+    setCurrentProject({
+      ...currentProject,
+      [name]: value,
+    });
+  };
+
+  const handleProficiencyChange = (value) => {
+    setTagInput({...tagInput, proficiency: parseInt(value)});
+  };
+
   // Remove technology from current project
   const removeProjectTech = (tech) => {
     setCurrentProject({
@@ -354,19 +366,28 @@ const removeTag = (type, tag) => {
         institution: userData.education.institution,
         education_status: userData.education.status,
         year: userData.education.year,
-        skills: userData.skills.map((skill) => ({
-          name: skill,
-          proficiency: 4,
-        })), // แปลงเป็น object ตามที่ API ต้องการ
-        programming_languages: userData.programmingLanguages,
-        tools: userData.tools,
+        skills: userData.skills.map((skill) => 
+          typeof skill === 'object' 
+            ? skill.name 
+            : skill
+        ), 
+        programming_languages: userData.programmingLanguages.map(lang => 
+          typeof lang === 'object' 
+            ? lang.name 
+            : lang
+        ),
+        tools: userData.tools.map(tool => 
+          typeof tool === 'object' 
+            ? tool.name 
+            : tool
+        ),
         projects: userData.projects.map((project) => ({
           name: project.name,
           description: project.description,
           technologies: project.technologies,
           role: project.role,
         })),
-        work_experiences: [], // ยังไม่มีข้อมูลประสบการณ์ทำงาน
+        work_experiences: [], 
       };
   
       // Create FormData for file upload
@@ -390,8 +411,20 @@ const removeTag = (type, tag) => {
         // Move to success step
         setCurrentStep(6);
       } else {
-        const errorData = await response.json();
-        console.error("Registration error:", errorData);
+        // Try to parse error response
+        let errorData = {};
+        try {
+          errorData = await response.json();
+        } catch (parseError) {
+          // If response is not JSON, get text or status
+          try {
+            errorData.detail = await response.text();
+          } catch (textError) {
+            errorData.detail = `HTTP Error ${response.status}: ${response.statusText}`;
+          }
+        }
+        
+        console.error("Registration error:", response.status, errorData);
         alert(
           `Registration failed: ${errorData.detail || "Please try again."}`
         );
@@ -532,403 +565,435 @@ const removeTag = (type, tag) => {
         );
 
         case 2:
-          return (
-            <div className="w-full max-w-md">
-              <div className="flex items-center mb-6">
-                <div className="p-2 bg-blue-100 rounded-full mr-4">
-                  <Code className="h-6 w-6 text-blue-600" />
+  return (
+    <div className="w-full max-w-md">
+      <div className="flex items-center mb-6">
+        <div className="p-2 bg-blue-100 rounded-full mr-4">
+          <Code className="h-6 w-6 text-blue-600" />
+        </div>
+        <h2 className="text-xl font-semibold">ทักษะและความสามารถ</h2>
+      </div>
+
+      <div className="mb-6">
+        <div className="flex space-x-2 mb-2">
+          <button
+            className={`px-3 py-1 rounded-full text-sm ${
+              selectedTagType === "skills"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-700"
+            }`}
+            onClick={() => setSelectedTagType("skills")}
+          >
+            ทักษะ
+          </button>
+          <button
+            className={`px-3 py-1 rounded-full text-sm ${
+              selectedTagType === "programmingLanguages"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-700"
+            }`}
+            onClick={() => setSelectedTagType("programmingLanguages")}
+          >
+            ภาษาโปรแกรม
+          </button>
+          <button
+            className={`px-3 py-1 rounded-full text-sm ${
+              selectedTagType === "tools"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-700"
+            }`}
+            onClick={() => setSelectedTagType("tools")}
+          >
+            เครื่องมือ
+          </button>
+        </div>
+
+        <div className="relative mb-2">
+          <div className="flex">
+            <input
+              type="text"
+              value={tagInput.name}
+              onChange={handleTagInputChange}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder={
+                selectedTagType === "skills"
+                  ? "พิมพ์เพื่อค้นหาหรือเพิ่มทักษะ"
+                  : selectedTagType === "programmingLanguages"
+                  ? "พิมพ์เพื่อค้นหาหรือเพิ่มภาษาโปรแกรม"
+                  : "พิมพ์เพื่อค้นหาหรือเพิ่มเครื่องมือ"
+              }
+              onKeyPress={(e) => e.key === "Enter" && (showProficiencySlider ? addTag() : setShowProficiencySlider(true))}
+            />
+            <button
+              className="px-3 py-2 bg-blue-600 text-white rounded-r-lg hover:bg-blue-700 transition-colors"
+              onClick={() => showProficiencySlider ? addTag() : setShowProficiencySlider(true)}
+            >
+              {showProficiencySlider ? "เพิ่ม" : "ต่อไป"}
+            </button>
+          </div>
+
+          {/* Suggestions dropdown */}
+          {filteredOptions.length > 0 && !showProficiencySlider && (
+            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
+              {filteredOptions.map((option, index) => (
+                <div
+                  key={index}
+                  className="px-3 py-2 hover:bg-blue-50 cursor-pointer"
+                  onClick={() => addSuggestedTag(option)}
+                >
+                  {option}
                 </div>
-                <h2 className="text-xl font-semibold">ทักษะและความสามารถ</h2>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* แก้ไข: เปลี่ยนจาก Proficiency slider เป็น Radio buttons */}
+        {showProficiencySlider && (
+          <div className="mt-2 mb-4 bg-gray-50 p-3 rounded-lg">
+            <label className="text-sm font-medium text-gray-700 mb-2 block">
+              ระดับความชำนาญของ "{tagInput.name}" (1-5)
+            </label>
+            <div className="flex flex-col mt-2">
+              <div className="flex justify-between mb-1">
+                <span className="text-xs text-gray-500">น้อย</span>
+                <span className="text-xs text-gray-500">มาก</span>
               </div>
-        
-              <div className="mb-6">
-                <div className="flex space-x-2 mb-2">
-                  <button
-                    className={`px-3 py-1 rounded-full text-sm ${
-                      selectedTagType === "skills"
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-200 text-gray-700"
-                    }`}
-                    onClick={() => setSelectedTagType("skills")}
-                  >
-                    ทักษะ
-                  </button>
-                  <button
-                    className={`px-3 py-1 rounded-full text-sm ${
-                      selectedTagType === "programmingLanguages"
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-200 text-gray-700"
-                    }`}
-                    onClick={() => setSelectedTagType("programmingLanguages")}
-                  >
-                    ภาษาโปรแกรม
-                  </button>
-                  <button
-                    className={`px-3 py-1 rounded-full text-sm ${
-                      selectedTagType === "tools"
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-200 text-gray-700"
-                    }`}
-                    onClick={() => setSelectedTagType("tools")}
-                  >
-                    เครื่องมือ
-                  </button>
-                </div>
-        
-                <div className="relative mb-2">
-                  <div className="flex">
+              
+              <div className="flex justify-between">
+                {[1, 2, 3, 4, 5].map(num => (
+                  <div key={num} className="flex items-center">
                     <input
-                      type="text"
-                      value={tagInput.name}
-                      onChange={handleTagInputChange}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder={
-                        selectedTagType === "skills"
-                          ? "พิมพ์เพื่อค้นหาหรือเพิ่มทักษะ"
-                          : selectedTagType === "programmingLanguages"
-                          ? "พิมพ์เพื่อค้นหาหรือเพิ่มภาษาโปรแกรม"
-                          : "พิมพ์เพื่อค้นหาหรือเพิ่มเครื่องมือ"
-                      }
-                      onKeyPress={(e) => e.key === "Enter" && (showProficiencySlider ? addTag() : setShowProficiencySlider(true))}
+                      type="radio"
+                      id={`proficiency-${num}`}
+                      name="proficiency"
+                      value={num}
+                      checked={tagInput.proficiency === num}
+                      onChange={(e) => handleProficiencyChange(e.target.value)}
+                      className="mr-1"
                     />
-                    <button
-                      className="px-3 py-2 bg-blue-600 text-white rounded-r-lg hover:bg-blue-700 transition-colors"
-                      onClick={() => showProficiencySlider ? addTag() : setShowProficiencySlider(true)}
-                    >
-                      {showProficiencySlider ? "เพิ่ม" : "ต่อไป"}
-                    </button>
+                    <label htmlFor={`proficiency-${num}`} className="text-sm">{num}</label>
                   </div>
-        
-                  {/* Suggestions dropdown */}
-                  {filteredOptions.length > 0 && !showProficiencySlider && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
-                      {filteredOptions.map((option, index) => (
-                        <div
-                          key={index}
-                          className="px-3 py-2 hover:bg-blue-50 cursor-pointer"
-                          onClick={() => addSuggestedTag(option)}
-                        >
-                          {option}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-        
-                {/* Proficiency slider */}
-                {showProficiencySlider && (
-                  <div className="mt-2 mb-4 bg-gray-50 p-3 rounded-lg">
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">
-                      ระดับความชำนาญของ "{tagInput.name}" (1-5)
-                    </label>
-                    <div className="flex items-center mb-1">
-                      <span className="text-xs text-gray-500 mr-2">น้อย</span>
-                      <input
-                        type="range"
-                        min="1"
-                        max="5"
-                        value={tagInput.proficiency}
-                        onChange={(e) => setTagInput({...tagInput, proficiency: parseInt(e.target.value)})}
-                        className="flex-1"
-                      />
-                      <span className="text-xs text-gray-500 ml-2">มาก</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <div className="flex">
-                        {[1, 2, 3, 4, 5].map(num => (
-                          <span key={num} className="px-2">{num}</span>
-                        ))}
-                      </div>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => setShowProficiencySlider(false)}
-                          className="px-3 py-1 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-100"
-                        >
-                          ยกเลิก
-                        </button>
-                        <button
-                          onClick={addTag}
-                          className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-                        >
-                          เพิ่ม
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-        
-                {/* Popular suggestions */}
-                {!showProficiencySlider && (
-                  <div className="mb-3">
-                    <p className="text-sm text-gray-500 mb-2">ตัวเลือกยอดนิยม:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {predefinedOptions[selectedTagType]
-                        .slice(0, 6)
-                        .map((option, index) => {
-                          // ตรวจสอบว่ามีในรายการแล้วหรือไม่
-                          const alreadyAdded = userData[selectedTagType].some(item => 
-                            typeof item === 'object' ? item.name === option : item === option
-                          );
-                          
-                          if (alreadyAdded) return null;
-                          
-                          return (
-                            <button
-                              key={index}
-                              className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm hover:bg-gray-200"
-                              onClick={() => addSuggestedTag(option)}
-                            >
-                              {option}
-                            </button>
-                          );
-                        })}
-                    </div>
-                  </div>
-                )}
-        
-                <div className="mb-4">
-                  <p className="text-sm font-medium text-gray-700 mb-2">
-                    {selectedTagType === "skills"
-                      ? "ทักษะของคุณ"
-                      : selectedTagType === "programmingLanguages"
-                      ? "ภาษาโปรแกรมที่คุณเขียนได้"
-                      : "เครื่องมือที่คุณใช้งานได้"}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {userData[selectedTagType].map((tag, index) => (
-                      <div
-                        key={index}
-                        className={`px-3 py-1 rounded-full flex items-center ${
-                          selectedTagType === "skills" 
-                            ? "bg-blue-100 text-blue-800" 
-                            : selectedTagType === "programmingLanguages"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-purple-100 text-purple-800"
-                        }`}
-                      >
-                        <span>
-                          {typeof tag === 'object' 
-                            ? `${tag.name} (${tag.proficiency})` 
-                            : tag}
-                        </span>
-                        <button
-                          className="ml-2 text-gray-500 hover:text-gray-700"
-                          onClick={() => removeTag(selectedTagType, tag)}
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    ))}
-                    {userData[selectedTagType].length === 0 && (
-                      <p className="text-sm text-gray-500 italic">
-                        ยังไม่มีรายการ
-                      </p>
-                    )}
-                  </div>
-                </div>
-        
-                <div className="flex justify-between mt-8">
-                  <button
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                    onClick={prevStep}
-                  >
-                    ย้อนกลับ
-                  </button>
-                  <button
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    onClick={nextStep}
-                  >
-                    ถัดไป
-                  </button>
-                </div>
+                ))}
               </div>
             </div>
-          );
-
-      case 3:
-        return (
-          <div className="w-full max-w-md">
-            <div className="flex items-center mb-6">
-              <div className="p-2 bg-blue-100 rounded-full mr-4">
-                <Briefcase className="h-6 w-6 text-blue-600" />
-              </div>
-              <h2 className="text-xl font-semibold">โปรเจกต์ผลงาน</h2>
-            </div>
-
-            <div className="bg-gray-50 p-4 rounded-lg mb-6">
-              <h3 className="font-medium text-gray-800 mb-3">
-                เพิ่มโปรเจกต์ใหม่
-              </h3>
-
-              <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  ชื่อโปรเจกต์
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  value={currentProject.name}
-                  onChange={handleProjectChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="ชื่อโปรเจกต์"
-                />
-              </div>
-
-              <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  รายละเอียดโปรเจกต์
-                </label>
-                <textarea
-                  name="description"
-                  value={currentProject.description}
-                  onChange={handleProjectChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="อธิบายเกี่ยวกับโปรเจกต์"
-                  rows="2"
-                ></textarea>
-              </div>
-
-              <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  บทบาท/ตำแหน่งของคุณ
-                </label>
-                <input
-                  type="text"
-                  name="role"
-                  value={currentProject.role}
-                  onChange={handleProjectChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="เช่น Front-end Developer"
-                />
-              </div>
-
-              <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  สิ่งที่คุณรับผิดชอบ
-                </label>
-                <textarea
-                  name="responsibilities"
-                  value={currentProject.responsibilities}
-                  onChange={handleProjectChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="สิ่งที่คุณรับผิดชอบในโปรเจกต์นี้"
-                  rows="2"
-                ></textarea>
-              </div>
-
-              <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  เทคโนโลยีที่ใช้
-                </label>
-                <div className="flex mb-2">
-                  <input
-                    type="text"
-                    value={techInput}
-                    onChange={(e) => setTechInput(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="เช่น React, Node.js"
-                    onKeyPress={(e) => e.key === "Enter" && addProjectTech()}
-                  />
-                  <button
-                    className="px-3 py-2 bg-blue-600 text-white rounded-r-lg hover:bg-blue-700 transition-colors"
-                    onClick={addProjectTech}
-                  >
-                    เพิ่ม
-                  </button>
-                </div>
-
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {currentProject.technologies.map((tech, index) => (
-                    <div
-                      key={index}
-                      className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full flex items-center"
-                    >
-                      <span>{tech}</span>
-                      <button
-                        className="ml-2 text-blue-500 hover:text-blue-700"
-                        onClick={() => removeProjectTech(tech)}
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
+            <div className="flex justify-end mt-3 space-x-2">
               <button
-                className="w-full px-4 py-2 mt-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center"
-                onClick={addProject}
-                disabled={!currentProject.name}
+                onClick={() => setShowProficiencySlider(false)}
+                className="px-3 py-1 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-100"
               >
-                <Plus size={16} className="mr-2" />
-                เพิ่มโปรเจกต์
-              </button>
-            </div>
-
-            {userData.projects.length > 0 && (
-              <div className="mb-6">
-                <h3 className="font-medium text-gray-800 mb-3">
-                  โปรเจกต์ที่เพิ่มแล้ว
-                </h3>
-                <div className="space-y-3">
-                  {userData.projects.map((project) => (
-                    <div
-                      key={project.id}
-                      className="border border-gray-200 rounded-lg p-3"
-                    >
-                      <div className="flex justify-between">
-                        <h4 className="font-medium">{project.name}</h4>
-                        <button
-                          className="text-red-500 hover:text-red-700"
-                          onClick={() => removeProject(project.id)}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                      {project.role && (
-                        <p className="text-sm text-blue-600 mt-1">
-                          {project.role}
-                        </p>
-                      )}
-                      {project.description && (
-                        <p className="text-sm text-gray-600 mt-1">
-                          {project.description}
-                        </p>
-                      )}
-                      {project.technologies.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {project.technologies.map((tech, i) => (
-                            <span
-                              key={i}
-                              className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full"
-                            >
-                              {tech}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex justify-between mt-8">
-              <button
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                onClick={prevStep}
-              >
-                ย้อนกลับ
+                ยกเลิก
               </button>
               <button
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                onClick={nextStep}
+                onClick={addTag}
+                className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
               >
-                ถัดไป
+                เพิ่ม
               </button>
             </div>
           </div>
-        );
+        )}
+
+        {/* Popular suggestions */}
+        {!showProficiencySlider && (
+          <div className="mb-3">
+            <p className="text-sm text-gray-500 mb-2">ตัวเลือกยอดนิยม:</p>
+            <div className="flex flex-wrap gap-2">
+              {predefinedOptions[selectedTagType]
+                .slice(0, 6)
+                .map((option, index) => {
+                  // ตรวจสอบว่ามีในรายการแล้วหรือไม่
+                  const alreadyAdded = userData[selectedTagType].some(item => 
+                    typeof item === 'object' ? item.name === option : item === option
+                  );
+                  
+                  if (alreadyAdded) return null;
+                  
+                  return (
+                    <button
+                      key={index}
+                      className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm hover:bg-gray-200"
+                      onClick={() => addSuggestedTag(option)}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        )}
+
+        <div className="mb-4">
+          <p className="text-sm font-medium text-gray-700 mb-2">
+            {selectedTagType === "skills"
+              ? "ทักษะของคุณ"
+              : selectedTagType === "programmingLanguages"
+              ? "ภาษาโปรแกรมที่คุณเขียนได้"
+              : "เครื่องมือที่คุณใช้งานได้"}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {userData[selectedTagType].map((tag, index) => (
+              <div
+                key={index}
+                className={`px-3 py-1 rounded-full flex items-center ${
+                  selectedTagType === "skills" 
+                    ? "bg-blue-100 text-blue-800" 
+                    : selectedTagType === "programmingLanguages"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-purple-100 text-purple-800"
+                }`}
+              >
+                <span>
+                  {typeof tag === 'object' 
+                    ? `${tag.name} (${tag.proficiency})` 
+                    : tag}
+                </span>
+                <button
+                  className="ml-2 text-gray-500 hover:text-gray-700"
+                  onClick={() => removeTag(selectedTagType, tag)}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ))}
+            {userData[selectedTagType].length === 0 && (
+              <p className="text-sm text-gray-500 italic">
+                ยังไม่มีรายการ
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-between mt-8">
+          <button
+            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            onClick={prevStep}
+          >
+            ย้อนกลับ
+          </button>
+          <button
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            onClick={nextStep}
+          >
+            ถัดไป
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+case 3:
+  return (
+    <div className="w-full max-w-md">
+      <div className="flex items-center mb-6">
+        <div className="p-2 bg-blue-100 rounded-full mr-4">
+          <Briefcase className="h-6 w-6 text-blue-600" />
+        </div>
+        <h2 className="text-xl font-semibold">โปรเจกต์ผลงาน</h2>
+      </div>
+
+      <div className="bg-gray-50 p-4 rounded-lg mb-6">
+        <h3 className="font-medium text-gray-800 mb-3">
+          เพิ่มโปรเจกต์ใหม่
+        </h3>
+
+        <div className="mb-3">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            ชื่อโปรเจกต์
+          </label>
+          <input
+            type="text"
+            name="name"
+            value={currentProject.name}
+            onChange={handleProjectChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="ชื่อโปรเจกต์"
+          />
+        </div>
+
+        <div className="mb-3">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            รายละเอียดโปรเจกต์
+          </label>
+          <textarea
+            name="description"
+            value={currentProject.description}
+            onChange={handleProjectChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="อธิบายเกี่ยวกับโปรเจกต์"
+            rows="2"
+          ></textarea>
+        </div>
+
+        <div className="mb-3">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            บทบาท/ตำแหน่งของคุณ
+          </label>
+          <input
+            type="text"
+            name="role"
+            value={currentProject.role}
+            onChange={handleProjectChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="เช่น Front-end Developer"
+          />
+        </div>
+
+        <div className="mb-3">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            สิ่งที่คุณรับผิดชอบ
+          </label>
+          <textarea
+            name="responsibilities"
+            value={currentProject.responsibilities}
+            onChange={handleProjectChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="สิ่งที่คุณรับผิดชอบในโปรเจกต์นี้"
+            rows="2"
+          ></textarea>
+        </div>
+
+        <div className="mb-3">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            เทคโนโลยีที่ใช้
+          </label>
+          <div className="flex mb-2">
+            <input
+              type="text"
+              value={techInput}
+              onChange={(e) => setTechInput(e.target.value)}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="เช่น React, Node.js"
+              onKeyPress={(e) => e.key === "Enter" && addProjectTech()}
+            />
+            <button
+              className="px-3 py-2 bg-blue-600 text-white rounded-r-lg hover:bg-blue-700 transition-colors"
+              onClick={addProjectTech}
+            >
+              เพิ่ม
+            </button>
+          </div>
+          
+          {/* เพิ่มตัวเลือกยอดนิยมสำหรับเทคโนโลยี */}
+          <div className="mb-3">
+            <p className="text-sm text-gray-500 mb-2">เทคโนโลยียอดนิยม:</p>
+            <div className="flex flex-wrap gap-2">
+              {["React", "Angular", "Vue", "Node.js", "Express", "Django", "Flask"].map((option, index) => {
+                // ตรวจสอบว่ามีในรายการแล้วหรือไม่
+                const alreadyAdded = currentProject.technologies.includes(option);
+                
+                if (alreadyAdded) return null;
+                
+                return (
+                  <button
+                    key={index}
+                    className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm hover:bg-gray-200"
+                    onClick={() => {
+                      setCurrentProject({
+                        ...currentProject,
+                        technologies: [...currentProject.technologies, option]
+                      });
+                    }}
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 mt-2">
+            {currentProject.technologies.map((tech, index) => (
+              <div
+                key={index}
+                className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full flex items-center"
+              >
+                <span>{tech}</span>
+                <button
+                  className="ml-2 text-blue-500 hover:text-blue-700"
+                  onClick={() => removeProjectTech(tech)}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button
+          className="w-full px-4 py-2 mt-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center"
+          onClick={addProject}
+          disabled={!currentProject.name}
+        >
+          <Plus size={16} className="mr-2" />
+          เพิ่มโปรเจกต์
+        </button>
+      </div>
+
+      {userData.projects.length > 0 && (
+        <div className="mb-6">
+          <h3 className="font-medium text-gray-800 mb-3">
+            โปรเจกต์ที่เพิ่มแล้ว
+          </h3>
+          <div className="space-y-3">
+            {userData.projects.map((project) => (
+              <div
+                key={project.id}
+                className="border border-gray-200 rounded-lg p-3"
+              >
+                <div className="flex justify-between">
+                  <h4 className="font-medium">{project.name}</h4>
+                  <button
+                    className="text-red-500 hover:text-red-700"
+                    onClick={() => removeProject(project.id)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+                {project.role && (
+                  <p className="text-sm text-blue-600 mt-1">
+                    {project.role}
+                  </p>
+                )}
+                {project.description && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    {project.description}
+                  </p>
+                )}
+                {project.technologies.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {project.technologies.map((tech, i) => (
+                      <span
+                        key={i}
+                        className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full"
+                      >
+                        {tech}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-between mt-8">
+        <button
+          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+          onClick={prevStep}
+        >
+          ย้อนกลับ
+        </button>
+        <button
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          onClick={nextStep}
+        >
+          ถัดไป
+        </button>
+      </div>
+    </div>
+  );
 
       case 4:
         return (
@@ -999,161 +1064,167 @@ const removeTag = (type, tag) => {
           </div>
         );
 
-      case 5:
-        return (
-          <div className="w-full max-w-md">
-            <div className="flex items-center mb-6">
-              <div className="p-2 bg-blue-100 rounded-full mr-4">
-                <CheckCircle className="h-6 w-6 text-blue-600" />
-              </div>
-              <h2 className="text-xl font-semibold">ตรวจสอบข้อมูล</h2>
-            </div>
-
-            <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <h3 className="font-medium text-gray-800 border-b pb-2 mb-3">
-                ข้อมูลส่วนตัว
-              </h3>
-              <p>
-                <span className="font-medium">ชื่อ:</span> {userData.name}
-              </p>
-              <p>
-                <span className="font-medium">สถาบัน:</span>{" "}
-                {userData.education.institution || "-"}
-              </p>
-              <p>
-                <span className="font-medium">สถานะการศึกษา:</span>{" "}
-                {userData.education.status === "student"
-                  ? `กำลังศึกษาชั้นปีที่ ${userData.education.year}`
-                  : userData.education.status === "graduate"
-                  ? "จบการศึกษา"
-                  : "ทำงานแล้ว"}
-              </p>
-            </div>
-
-            <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <h3 className="font-medium text-gray-800 border-b pb-2 mb-3">
-                ทักษะและความสามารถ
-              </h3>
-
-              <div className="mb-3">
-                <p className="font-medium text-gray-700">ทักษะ:</p>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {userData.skills.map((skill, index) => (
-                    <span
-                      key={index}
-                      className="px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded-full"
-                    >
-                      {skill}
-                    </span>
-                  ))}
-                  {userData.skills.length === 0 && (
-                    <span className="text-gray-500 italic">ไม่ได้ระบุ</span>
-                  )}
+        case 5:
+          return (
+            <div className="w-full max-w-md">
+              <div className="flex items-center mb-6">
+                <div className="p-2 bg-blue-100 rounded-full mr-4">
+                  <CheckCircle className="h-6 w-6 text-blue-600" />
                 </div>
+                <h2 className="text-xl font-semibold">ตรวจสอบข้อมูล</h2>
               </div>
-
-              <div className="mb-3">
-                <p className="font-medium text-gray-700">ภาษาโปรแกรม:</p>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {userData.programmingLanguages.map((lang, index) => (
-                    <span
-                      key={index}
-                      className="px-2 py-1 bg-green-100 text-green-800 text-sm rounded-full"
-                    >
-                      {lang}
-                    </span>
-                  ))}
-                  {userData.programmingLanguages.length === 0 && (
-                    <span className="text-gray-500 italic">ไม่ได้ระบุ</span>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <p className="font-medium text-gray-700">เครื่องมือ:</p>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {userData.tools.map((tool, index) => (
-                    <span
-                      key={index}
-                      className="px-2 py-1 bg-purple-100 text-purple-800 text-sm rounded-full"
-                    >
-                      {tool}
-                    </span>
-                  ))}
-                  {userData.tools.length === 0 && (
-                    <span className="text-gray-500 italic">ไม่ได้ระบุ</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {userData.projects.length > 0 && (
+        
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <h3 className="font-medium text-gray-800 border-b pb-2 mb-3">
-                  โปรเจกต์ ({userData.projects.length})
+                  ข้อมูลส่วนตัว
                 </h3>
-                <div className="space-y-3">
-                  {userData.projects.map((project, index) => (
-                    <div
-                      key={index}
-                      className="border border-gray-200 rounded-lg p-3"
-                    >
-                      <h4 className="font-medium">{project.name}</h4>
-                      {project.role && (
-                        <p className="text-sm text-blue-600 mt-1">
-                          {project.role}
-                        </p>
-                      )}
-                      {project.description && (
-                        <p className="text-sm text-gray-600 mt-1">
-                          {project.description}
-                        </p>
-                      )}
-                      {project.technologies.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {project.technologies.map((tech, i) => (
-                            <span
-                              key={i}
-                              className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full"
-                            >
-                              {tech}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                <p>
+                  <span className="font-medium">ชื่อ:</span> {userData.name}
+                </p>
+                <p>
+                  <span className="font-medium">สถาบัน:</span>{" "}
+                  {userData.education.institution || "-"}
+                </p>
+                <p>
+                  <span className="font-medium">สถานะการศึกษา:</span>{" "}
+                  {userData.education.status === "student"
+                    ? `กำลังศึกษาชั้นปีที่ ${userData.education.year}`
+                    : userData.education.status === "graduate"
+                    ? "จบการศึกษา"
+                    : "ทำงานแล้ว"}
+                </p>
+              </div>
+        
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <h3 className="font-medium text-gray-800 border-b pb-2 mb-3">
+                  ทักษะและความสามารถ
+                </h3>
+        
+                <div className="mb-3">
+                  <p className="font-medium text-gray-700">ทักษะ:</p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {userData.skills.map((skill, index) => (
+                      <span
+                        key={index}
+                        className="px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded-full"
+                      >
+                        {typeof skill === 'object' 
+                          ? `${skill.name} (${skill.proficiency})` 
+                          : skill}
+                      </span>
+                    ))}
+                    {userData.skills.length === 0 && (
+                      <span className="text-gray-500 italic">ไม่ได้ระบุ</span>
+                    )}
+                  </div>
+                </div>
+        
+                <div className="mb-3">
+                  <p className="font-medium text-gray-700">ภาษาโปรแกรม:</p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {userData.programmingLanguages.map((lang, index) => (
+                      <span
+                        key={index}
+                        className="px-2 py-1 bg-green-100 text-green-800 text-sm rounded-full"
+                      >
+                        {typeof lang === 'object' 
+                          ? `${lang.name} (${lang.proficiency})` 
+                          : lang}
+                      </span>
+                    ))}
+                    {userData.programmingLanguages.length === 0 && (
+                      <span className="text-gray-500 italic">ไม่ได้ระบุ</span>
+                    )}
+                  </div>
+                </div>
+        
+                <div>
+                  <p className="font-medium text-gray-700">เครื่องมือ:</p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {userData.tools.map((tool, index) => (
+                      <span
+                        key={index}
+                        className="px-2 py-1 bg-purple-100 text-purple-800 text-sm rounded-full"
+                      >
+                        {typeof tool === 'object' 
+                          ? `${tool.name} (${tool.proficiency})` 
+                          : tool}
+                      </span>
+                    ))}
+                    {userData.tools.length === 0 && (
+                      <span className="text-gray-500 italic">ไม่ได้ระบุ</span>
+                    )}
+                  </div>
                 </div>
               </div>
-            )}
-
-            <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <h3 className="font-medium text-gray-800 border-b pb-2 mb-3">
-                Resume
-              </h3>
-              {userData.resume ? (
-                <p>{userData.resume.name}</p>
-              ) : (
-                <p className="text-gray-500 italic">ไม่ได้อัปโหลด</p>
+        
+              {userData.projects.length > 0 && (
+                <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                  <h3 className="font-medium text-gray-800 border-b pb-2 mb-3">
+                    โปรเจกต์ ({userData.projects.length})
+                  </h3>
+                  <div className="space-y-3">
+                    {userData.projects.map((project, index) => (
+                      <div
+                        key={index}
+                        className="border border-gray-200 rounded-lg p-3"
+                      >
+                        <h4 className="font-medium">{project.name}</h4>
+                        {project.role && (
+                          <p className="text-sm text-blue-600 mt-1">
+                            {project.role}
+                          </p>
+                        )}
+                        {project.description && (
+                          <p className="text-sm text-gray-600 mt-1">
+                            {project.description}
+                          </p>
+                        )}
+                        {project.technologies.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {project.technologies.map((tech, i) => (
+                              <span
+                                key={i}
+                                className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full"
+                              >
+                                {tech}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
+        
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <h3 className="font-medium text-gray-800 border-b pb-2 mb-3">
+                  Resume
+                </h3>
+                {userData.resume ? (
+                  <p>{userData.resume.name}</p>
+                ) : (
+                  <p className="text-gray-500 italic">ไม่ได้อัปโหลด</p>
+                )}
+              </div>
+        
+              <div className="flex justify-between mt-8">
+                <button
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  onClick={prevStep}
+                >
+                  ย้อนกลับ
+                </button>
+                <button
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  onClick={handleSubmit}
+                >
+                  บันทึกข้อมูล
+                </button>
+              </div>
             </div>
-
-            <div className="flex justify-between mt-8">
-              <button
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                onClick={prevStep}
-              >
-                ย้อนกลับ
-              </button>
-              <button
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                onClick={handleSubmit}
-              >
-                บันทึกข้อมูล
-              </button>
-            </div>
-          </div>
-        );
+          );
 
       case 6:
         return (

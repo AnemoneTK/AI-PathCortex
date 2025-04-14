@@ -172,7 +172,6 @@ async def recommend_jobs_for_user(
     แนะนำอาชีพสำหรับผู้ใช้
     
     Args:
-        user_id: รหัสผู้ใช้
         limit: จำนวนอาชีพที่แนะนำ
         vector_search: instance ของ VectorSearch
         
@@ -180,7 +179,7 @@ async def recommend_jobs_for_user(
         List[JobSummary]: รายการอาชีพที่แนะนำ
     """
     try:
-        # ดึงข้อมูลผู้ใช้
+        # ดึงข้อมูลผู้ใช้เดียวในระบบ
         from src.utils.storage import get_app_user
         user = get_app_user()
         if not user:

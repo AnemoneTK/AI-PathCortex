@@ -158,6 +158,29 @@ def create_app_user(user_data: UserCreate) -> Optional[User]:
         Optional[User]: ข้อมูลผู้ใช้ที่สร้างแล้ว หรือ None ถ้าไม่สำเร็จ
     """
     try:
+        # ตรวจสอบว่ามีผู้ใช้อยู่แล้วหรือไม่
+        existing_user = get_app_user()
+        if existing_user:
+            # แทนที่จะสร้างใหม่ ให้อัปเดตผู้ใช้เดิม
+            existing_user.name = user_data.name
+            existing_user.institution = user_data.institution
+            existing_user.education_status = user_data.education_status
+            existing_user.year = user_data.year
+            existing_user.skills = user_data.skills
+            existing_user.programming_languages = user_data.programming_languages
+            existing_user.tools = user_data.tools
+            existing_user.projects = user_data.projects
+            existing_user.work_experiences = user_data.work_experiences
+            existing_user.updated_at = datetime.now().isoformat()
+            
+            # บันทึกข้อมูลผู้ใช้
+            if save_app_user(existing_user):
+                logger.info(f"อัปเดตผู้ใช้เดิมสำเร็จ: {existing_user.name}")
+                return existing_user
+            else:
+                logger.error(f"ไม่สามารถอัปเดตข้อมูลผู้ใช้เดิมได้")
+                return None
+            
         # สร้างเวลาปัจจุบัน
         now = datetime.now().isoformat()
         

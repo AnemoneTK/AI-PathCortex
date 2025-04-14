@@ -85,7 +85,7 @@ async def ask_question(
         if not request.query:
             raise HTTPException(status_code=400, detail="กรุณาระบุคำถาม")
         
-        # ดึงข้อมูลผู้ใช้
+        # ดึงข้อมูลผู้ใช้เดียวในระบบ
         user_context = None
         user = get_app_user()
         if user:
