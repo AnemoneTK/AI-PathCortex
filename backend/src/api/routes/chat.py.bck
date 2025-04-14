@@ -13,18 +13,17 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends, Query, Path, Body, BackgroundTasks
 from pydantic import BaseModel
 
-# นำเข้าฟังก์ชันและโมดูลที่จำเป็น
-from src.utils.llm import safe_chat_with_context  # import จากไฟล์ llm.py ใหม่
+from src.utils.llm import chat_with_job_context, chat_with_combined_context
 from src.utils.vector_search import VectorSearch
 from src.utils.config import PersonalityType, VECTOR_DB_DIR
 from src.utils.storage import get_app_user, create_chat_message, save_chat_history
-from src.api.models import ChatHistory, ChatMessage, ChatResponse, ChatRequest
+from src.api.models import ChatHistory, ChatMessage
 from src.utils.logger import get_logger
 
 # ตั้งค่า logger
 logger = get_logger("api.routes.chat")
 
-# สร้าง router - ใช้ prefix แบบเดิมคือ /chat/
+# สร้าง router
 router = APIRouter(
     prefix="/chat",
     tags=["Chat"],
@@ -37,6 +36,31 @@ try:
 except Exception as e:
     logger.error(f"ไม่สามารถสร้าง VectorSearch ได้: {str(e)}")
     vector_search = None
+
+# คลาสสำหรับรับข้อมูลคำถาม
+class ChatRequest(BaseModel):
+    query: str
+    personality: Optional[PersonalityType] = PersonalityType.FRIENDLY
+    use_combined_search: bool = True
+    use_fine_tuned: bool = False
+
+# คลาสสำหรับส่งคำตอบ
+class ChatResponse(BaseModel):
+    response: str
+    search_results: List[Dict[str, Any]]
+    personality: PersonalityType
+    user_context: Optional[Dict[str, Any]] = None
+
+# คลาสสำหรับ query_chat
+class ChatQuery(BaseModel):
+    text: str
+    personality: PersonalityType = PersonalityType.FRIENDLY
+
+# คลาสสำหรับส่งคำตอบจาก query_chat
+class QueryChatResponse(BaseModel):
+    id: str
+    text: str
+    timestamp: str
 
 @router.post("/", response_model=ChatResponse)
 async def ask_question(
@@ -58,7 +82,7 @@ async def ask_question(
             raise HTTPException(status_code=500, detail="ระบบค้นหาข้อมูลไม่พร้อมใช้งาน")
         
         # ตรวจสอบว่ามีคำถามหรือไม่
-        if not request.message:
+        if not request.query:
             raise HTTPException(status_code=400, detail="กรุณาระบุคำถาม")
         
         # ดึงข้อมูลผู้ใช้เดียวในระบบ
@@ -69,51 +93,49 @@ async def ask_question(
         
         # ค้นหาข้อมูลที่เกี่ยวข้อง
         search_results = []
+    
+        if vector_search is not None:
+            if request.use_combined_search:
+                # ใช้การค้นหาแบบรวม
+                search_results = vector_search.search_combined(request.query, limit=5)
+            else:
+                # ใช้การค้นหาแบบแยกประเภท
+                job_results = vector_search.search_jobs(request.query, limit=3)
+                advice_results = vector_search.search_career_advices(request.query, limit=3)
+                
+                # เพิ่มคีย์ type ถ้าไม่มีในผลลัพธ์
+                for job in job_results:
+                    if "type" not in job:
+                        job["type"] = "job"
+                
+                for advice in advice_results:
+                    if "type" not in advice:
+                        advice["type"] = "advice"
+                
+                # รวมผลลัพธ์
+                search_results = job_results + advice_results
         
-        # Set default values for optional attributes
-        use_combined_search = getattr(request, 'use_combined_search', True)
-        use_fine_tuned = getattr(request, 'use_fine_tuned', False)
-        
-        if use_combined_search and vector_search is not None:
-            # ใช้การค้นหาแบบรวม
-            search_results = vector_search.search_combined(request.message, limit=5)
-        else:
-            # ใช้การค้นหาแบบแยกประเภท
-            job_results = vector_search.search_jobs(request.message, limit=3)
-            advice_results = vector_search.search_career_advices(request.message, limit=3)
-            
-            # เพิ่มคีย์ type ถ้าไม่มีในผลลัพธ์
-            for job in job_results:
-                if "type" not in job:
-                    job["type"] = "job"
-            
-            for advice in advice_results:
-                if "type" not in advice:
-                    advice["type"] = "advice"
-            
-            # รวมผลลัพธ์
-            search_results = job_results + advice_results
-        
-        # ใช้ฟังก์ชัน safe_chat_with_context ใหม่
-        response_text = await safe_chat_with_context(
-            query=request.message,
-            search_results=search_results,
-            user_context=user_context,
-            personality=request.personality,
-            use_fine_tuned=use_fine_tuned
+        # สร้างคำตอบ
+        response_text = await chat_with_combined_context(
+            request.query,
+            search_results,  # ส่ง search_results ที่เป็น list ของ dict
+            user_context,
+            request.personality,
+            request.use_fine_tuned
         )
         
         # สร้างและบันทึกประวัติการสนทนา
-        chat_history = create_chat_message(request.message, response_text)
+        chat_history = create_chat_message(request.query, response_text)
         
         # บันทึกประวัติในพื้นหลัง
         background_tasks.add_task(save_chat_history, chat_history)
         
         # สร้าง response
         return ChatResponse(
-            chat_id=chat_history.id,
-            message=response_text,
-            search_results=search_results
+            response=response_text,
+            search_results=search_results,
+            personality=request.personality,
+            user_context=user_context
         )
         
     except Exception as e:
@@ -149,16 +171,16 @@ async def get_user_chat_history(
     history = get_chat_history(limit=limit)
     return history
 
-@router.post("/query", response_model=ChatResponse)
-async def query_chat(request: ChatRequest):
+@router.post("/query", response_model=QueryChatResponse)
+async def query_chat(query: ChatQuery):
     """
     ส่งคำถามไปยัง LLM และรับคำตอบกลับมา
     
     Args:
-        request: คำถามและบุคลิกของ AI
+        query: คำถามและบุคลิกของ AI
         
     Returns:
-        ChatResponse: คำตอบจาก LLM
+        QueryChatResponse: คำตอบจาก LLM
     """
     try:
         # ดึงข้อมูลผู้ใช้
@@ -172,14 +194,19 @@ async def query_chat(request: ChatRequest):
             raise HTTPException(status_code=500, detail="ระบบค้นหาข้อมูลไม่พร้อมใช้งาน")
         
         # ใช้การค้นหาแบบรวม
-        search_results = vector_search.search_combined(request.message, limit=5)
+        search_results = vector_search.search_combined(query.text, limit=5)
         
-        # ใช้ฟังก์ชันใหม่
-        response = await safe_chat_with_context(
-            query=request.message,
+        # เพิ่มคีย์ type ถ้าไม่มี
+        for result in search_results:
+            if "type" not in result:
+                result["type"] = result.get("type", "unknown")
+        
+        # ส่งคำถามพร้อมผลการค้นหาไปยัง LLM
+        response = await chat_with_combined_context(
+            query=query.text,
             search_results=search_results,
             user_context=user_context,
-            personality=request.personality
+            personality=query.personality
         )
         
         # สร้างประวัติการสนทนา
@@ -191,7 +218,7 @@ async def query_chat(request: ChatRequest):
             user_id="app_user",
             timestamp=timestamp,
             messages=[
-                ChatMessage(role="user", content=request.message),
+                ChatMessage(role="user", content=query.text),
                 ChatMessage(role="assistant", content=response)
             ]
         )
@@ -202,10 +229,10 @@ async def query_chat(request: ChatRequest):
         except Exception as e:
             logger.error(f"เกิดข้อผิดพลาดในการบันทึกประวัติการสนทนา: {str(e)}")
         
-        return ChatResponse(
-            chat_id=chat_id,
-            message=response,
-            search_results=search_results
+        return QueryChatResponse(
+            id=chat_id,
+            text=response,
+            timestamp=timestamp
         )
     
     except Exception as e:

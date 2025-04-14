@@ -226,6 +226,8 @@ class ChatRequest(BaseModel):
     user_id: Optional[str] = Field(None, description="รหัสผู้ใช้ (ถ้ามี)")
     message: str = Field(..., description="ข้อความ")
     personality: PersonalityType = Field(PersonalityType.FRIENDLY, description="บุคลิกของ AI")
+    use_combined_search: bool = Field(True, description="ใช้การค้นหาแบบรวมหรือไม่")
+    use_fine_tuned: bool = Field(False, description="ใช้โมเดล fine-tuned หรือไม่")
 
 class ChatHistory(BaseModel):
     """ประวัติการสนทนา"""
