@@ -55,8 +55,8 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 210 40% 98%;
 
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
@@ -114,6 +114,11 @@
     border-radius: 0.75rem;
   }
 
+  .dark .glass-card {
+    background-color: rgba(30, 41, 59, 0.8);
+    border: 1px solid rgba(30, 41, 59, 0.4);
+  }
+
   .feature-card {
     background-color: white;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
@@ -125,9 +130,19 @@
     border: 1px solid rgb(229, 231, 235);
   }
 
+  .dark .feature-card {
+    background-color: rgb(30, 41, 59);
+    border: 1px solid rgb(55, 65, 81);
+  }
+
   .feature-card:hover {
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
       0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  .dark .feature-card:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4),
+      0 4px 6px -2px rgba(0, 0, 0, 0.2);
   }
 
   .hero-gradient {
@@ -138,11 +153,165 @@
     );
   }
 
+  .dark .hero-gradient {
+    background: linear-gradient(
+      90deg,
+      rgba(30, 64, 175, 0.6),
+      rgba(96, 165, 250, 0.5)
+    );
+  }
+
   .text-gradient {
     background: linear-gradient(to right, #2563eb, #60a5fa);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+  }
+
+  /* Custom Animation for messages */
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out forwards;
+  }
+
+  /* Custom animation for typing indicator */
+  @keyframes pulse {
+    0% {
+      transform: scale(0.7);
+      opacity: 0.3;
+    }
+    50% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(0.7);
+      opacity: 0.3;
+    }
+  }
+
+  .typing-dot {
+    animation: typing 1.4s infinite;
+  }
+
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes slide-in {
+    0% {
+      transform: translateX(-100%);
+      opacity: 0;
+    }
+    100% {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .animate-slide-in {
+    animation: slide-in 0.3s ease-out forwards;
+  }
+
+  @keyframes pop {
+    0% {
+      transform: scale(0.9);
+      opacity: 0;
+    }
+    70% {
+      transform: scale(1.05);
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .animate-pop {
+    animation: pop 0.3s ease-out forwards;
+  }
+
+  /* สำหรับ hover effect ที่นุ่มนวล */
+  .hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+
+  .dark .hover-lift:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4),
+      0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Background patterns for character */
+  .character-bg-pattern {
+    background-color: #f0f4ff;
+    background-image: radial-gradient(#dbeafe 1.5px, transparent 1.5px);
+    background-size: 12px 12px;
+  }
+
+  .dark .character-bg-pattern {
+    background-color: #1e293b;
+    background-image: radial-gradient(
+      rgba(56, 189, 248, 0.15) 1px,
+      transparent 1.5px
+    );
+    background-size: 12px 12px;
+  }
+
+  /* Chat bubbles */
+  .message-bubble {
+    max-width: 80%;
+    padding: 12px 16px;
+    border-radius: 18px;
+    animation: fade-in 0.3s ease-out forwards;
+  }
+
+  .message-user {
+    background-color: hsl(var(--primary));
+    color: white;
+    border-top-right-radius: 4px;
+    margin-left: auto;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+
+  .message-assistant {
+    background-color: white;
+    color: #1f2937;
+    border-top-left-radius: 4px;
+    margin-right: auto;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+
+  .dark .message-assistant {
+    background-color: #1e293b;
+    color: #e5e7eb;
+    border: 1px solid #374151;
   }
 }
 
@@ -154,4 +323,8 @@ body {
 
 * {
   border-color: hsl(var(--border));
+}
+
+.dark {
+  color-scheme: dark;
 }

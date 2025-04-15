@@ -9,7 +9,7 @@ const CharacterWithFollowingEyes = () => {
     left: { x: 0, y: 0 },
     right: { x: 0, y: 0 },
   });
-  const [eyeRadius, setEyeRadius] = useState(8);
+  const [eyeRadius, setEyeRadius] = useState(5);
   const [characterSize, setCharacterSize] = useState({ width: 0, height: 0 });
   const [lookStraight, setLookStraight] = useState(false);
   const [mouseOnScreen, setMouseOnScreen] = useState(true);
@@ -188,7 +188,7 @@ const CharacterWithFollowingEyes = () => {
 
         // ปรับค่า eyeRadius ตามระยะห่าง
         const nearThreshold = characterRect.width * 0.4;
-        const newEyeRadius = distanceFromCenter <= nearThreshold ? 5 : 10;
+        const newEyeRadius = distanceFromCenter <= nearThreshold ? 3 : 6;
 
         if (newEyeRadius !== eyeRadius) {
           setEyeRadius(newEyeRadius);

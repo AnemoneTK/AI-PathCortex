@@ -120,7 +120,13 @@ function ChatMessage({ message }) {
                   {message.sources.map((source, idx) => (
                     <li key={idx} className="flex items-start gap-1">
                       <span className="font-medium">{source.job_title || source.type}:</span> 
-                      <span>{source.content.substring(0, 60)}...</span>
+                      <span>
+  {typeof source.content === 'string' 
+    ? source.content.substring(0, 60) + '...'
+    : source.content && typeof source.content === 'object'
+      ? JSON.stringify(source.content).substring(0, 60) + '...'
+      : 'ไม่มีเนื้อหา'}
+</span>
                     </li>
                   ))}
                 </ul>

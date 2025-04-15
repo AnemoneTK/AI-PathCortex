@@ -390,7 +390,7 @@ const removeTag = (type, tag) => {
       // Create FormData for file upload
       const formData = new FormData();
       
-      // แปลงข้อมูลทั้งหมดเป็น JSON string และเพิ่มเข้า FormData
+      // เพิ่มข้อมูลผู้ใช้
       formData.append("user_data", JSON.stringify(apiUserData));
   
       // Add resume file if exists
@@ -398,8 +398,8 @@ const removeTag = (type, tag) => {
         formData.append("resume", userData.resume);
       }
   
-      // Send to backend API - ส่งไปที่ /registration/ แทน /users/
-      const response = await fetch("http://localhost:8000/registration/", {
+      // Send to backend API
+      const response = await fetch("http://0.0.0.0:8000/registration/", {
         method: "POST",
         body: formData,
       });
@@ -407,6 +407,9 @@ const removeTag = (type, tag) => {
       if (response.ok) {
         // Move to success step
         setCurrentStep(6);
+        
+        // เปลี่ยนหน้าทันทีหลังลงทะเบียนสำเร็จ
+        window.location.href = "/chat";
       } else {
         // Try to parse error response
         let errorData = {};
