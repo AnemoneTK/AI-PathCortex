@@ -10,7 +10,6 @@ import asyncio
 import json
 from typing import Dict, Any, Optional, List, Union
 import httpx
-import logging
 
 # ตั้งค่า logger สำหรับไฟล์นี้โดยเฉพาะ
 from src.utils.logger import get_logger
@@ -459,3 +458,116 @@ def customize_prompt_for_query(prompt: str, query: str, user_context: Optional[D
         prompt += "\nกรุณาให้ข้อมูลช่วงเงินเดือนโดยประมาณ และแนะนำว่าเงินเดือนอาจแตกต่างกันตามโครงสร้างบริษัท ขนาดบริษัท และภูมิภาค"
     
     return prompt
+
+def format_response_with_personality(response: str, user_context: Optional[Dict[str, Any]], personality: str) -> str:
+    """
+    ปรับแต่งคำตอบให้เข้ากับบุคลิกและข้อมูลผู้ใช้
+    
+    Args:
+        response: คำตอบจาก LLM
+        user_context: ข้อมูลผู้ใช้ (ถ้ามี)
+        personality: บุคลิกของ AI
+        
+    Returns:
+        str: คำตอบที่ปรับแต่งแล้ว
+    """
+    # ถ้าไม่มีข้อมูลผู้ใช้ ส่งคืนคำตอบเดิม
+    if not user_context:
+        return response
+    
+    user_name = user_context.get('name', '')
+    if not user_name:
+        return response
+    
+    # ถ้ามีชื่อผู้ใช้ ให้ปรับการทักทายตามบุคลิก
+    if personality == "formal":
+        # ตรวจสอบว่ามีการทักทายหรือไม่
+        if not any(greeting in response[:50].lower() for greeting in ["เรียน", "สวัสดี", "ขอความเคารพ"]):
+            return f"เรียน คุณ{user_name}\n\n{response}"
+    
+    elif personality == "friendly":
+        # ตรวจสอบว่ามีการทักทายหรือไม่
+        if not any(greeting in response[:30].lower() for greeting in ["สวัสดี", "หวัดดี", "ฮัลโหล"]):
+            return f"สวัสดี {user_name}! \n\n{response}"
+    
+    elif personality == "fun":
+        # ตรวจสอบว่ามีการทักทายแบบ FUN หรือไม่
+        if "น้าบอุเทอ" not in response[:50]:
+            return f"น้าบอุเทอ {user_name} เขาตอบให้น้า! \n\n{response}"
+    
+    return response
+
+async def call_llm_api(
+    prompt: str,
+    model: str,
+    api_base: str,
+    api_key: Optional[str] = None,
+    temperature: float = 0.7,
+    max_tokens: int = 1000,
+) -> str:
+    """
+    เรียกใช้ LLM API และส่งคืนการตอบกลับ
+    
+    Args:
+        prompt: ข้อความคำถามหรือคำสั่งที่จะส่งไปยัง LLM
+        model: ชื่อโมเดล LLM ที่จะใช้
+        api_base: URL พื้นฐานของ LLM API (เช่น http://llm-service:11434)
+        api_key: API key สำหรับ LLM (ถ้ามี)
+        temperature: ระดับความสร้างสรรค์ของการตอบ (0.0-1.0)
+        max_tokens: จำนวนโทเค็นสูงสุดที่จะสร้าง
+        
+    Returns:
+        str: ข้อความตอบกลับจาก LLM
+    """
+    try:
+        logger.info(f"กำลังเรียกใช้ LLM API: {api_base} โมเดล: {model}")
+        
+        # สร้าง payload ตามรูปแบบของ Ollama API
+        # ดูเพิ่มเติมที่: https://github.com/ollama/ollama/blob/main/docs/api.md
+        payload = {
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        
+        # สร้าง headers
+        headers = {
+            "Content-Type": "application/json"
+        }
+        
+        # เพิ่ม API key ถ้ามี
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        
+        # เรียกใช้ API
+        async with httpx.AsyncClient() as client:
+            try:
+                # ส่งคำขอไปยัง Ollama API
+                response = await client.post(
+                    f"{api_base}/api/generate",
+                    json=payload,
+                    headers=headers,
+                    timeout=120.0,  # เพิ่ม timeout เป็น 2 นาที
+                )
+                
+                # ตรวจสอบสถานะการตอบกลับ
+                if response.status_code == 200:
+                    result = response.json()
+                    return result.get("response", "ไม่สามารถได้รับคำตอบจาก LLM")
+                else:
+                    error_msg = f"LLM API ตอบกลับด้วย status code: {response.status_code}, {response.text}"
+                    logger.error(error_msg)
+                    return f"เกิดข้อผิดพลาดในการเรียกใช้ LLM API: {error_msg}"
+                    
+            except httpx.TimeoutException:
+                logger.error("การเรียกใช้ LLM API หมดเวลา (timeout)")
+                return "การเรียกใช้ LLM API หมดเวลา กรุณาลองอีกครั้งในภายหลัง"
+            except httpx.RequestError as e:
+                logger.error(f"เกิดข้อผิดพลาดในการเชื่อมต่อกับ LLM API: {str(e)}")
+                return f"ไม่สามารถเชื่อมต่อกับ LLM API ได้: {str(e)}"
+    
+    except Exception as e:
+        logger.error(f"เกิดข้อผิดพลาดในการเรียกใช้ LLM API: {str(e)}")
+        return "เกิดข้อผิดพลาดในระบบ ไม่สามารถตอบคำถามได้ในขณะนี้"

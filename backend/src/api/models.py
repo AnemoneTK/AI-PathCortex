@@ -98,8 +98,8 @@ class UserUpdate(BaseModel):
     education_status: Optional[EducationStatus] = Field(None, description="สถานะการศึกษา")
     year: Optional[int] = Field(None, description="ชั้นปีที่กำลังศึกษา")
     skills: Optional[List[UserSkill]] = Field(None, description="ทักษะที่มี")
-    programming_languages: Optional[List[str]] = Field(None, description="ภาษาโปรแกรมที่ใช้ได้")
-    tools: Optional[List[str]] = Field(None, description="เครื่องมือที่ใช้ได้")
+    programming_languages: Optional[List[UserSkill]] = Field(None, description="ภาษาโปรแกรมที่ใช้ได้")
+    tools: Optional[List[UserSkill]] = Field(None, description="เครื่องมือที่ใช้ได้")
     projects: Optional[List[UserProject]] = Field(None, description="โปรเจกต์ที่เคยทำ")
     work_experiences: Optional[List[UserWorkExperience]] = Field(None, description="ประสบการณ์ทำงาน")
 
@@ -223,7 +223,6 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     """คำขอการสนทนา"""
-    user_id: Optional[str] = Field(None, description="รหัสผู้ใช้ (ถ้ามี)")
     message: str = Field(..., description="ข้อความ")
     personality: PersonalityType = Field(PersonalityType.FRIENDLY, description="บุคลิกของ AI")
     use_combined_search: bool = Field(True, description="ใช้การค้นหาแบบรวมหรือไม่")
@@ -240,4 +239,4 @@ class ChatResponse(BaseModel):
     """การตอบกลับการสนทนา"""
     chat_id: str = Field(..., description="รหัสการสนทนา")
     message: str = Field(..., description="ข้อความตอบกลับ")
-    search_results: List[Union[JobSearchResult, AdviceSearchResult]] = Field([], description="ผลลัพธ์การค้นหาที่เกี่ยวข้อง")
+    search_results: List[Union[Dict[str, Any], JobSearchResult, AdviceSearchResult]] = Field([], description="ผลลัพธ์การค้นหาที่เกี่ยวข้อง")

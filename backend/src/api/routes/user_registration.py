@@ -46,6 +46,8 @@ async def register_user(
         # แปลง JSON string เป็น dictionary
         user_dict = json.loads(user_data)
         
+        logger.info(f"Received user data: {json.dumps(user_dict, ensure_ascii=False)[:200]}...")
+        
         # แปลงข้อมูลให้เข้ากับโมเดล UserCreate
         education_status = EducationStatus.STUDENT
         if user_dict.get('education_status') == 'graduate':
@@ -67,30 +69,30 @@ async def register_user(
                 # กรณีอื่นๆ
                 logger.warning(f"พบรูปแบบทักษะที่ไม่รองรับ: {skill}")
         
-        # แปลงภาษาโปรแกรมให้เป็นรูปแบบที่มี proficiency
-        programming_languages_with_proficiency = []
+        # แปลงภาษาโปรแกรมให้เป็นรูปแบบที่ถูกต้อง
+        programming_languages = []
         for lang in user_dict.get('programming_languages', []):
             if isinstance(lang, dict):
                 # กรณีส่งมาเป็น object ที่มี name และ proficiency
                 lang_obj = {"name": lang.get("name", ""), "proficiency": lang.get("proficiency", 4)}
-                programming_languages_with_proficiency.append(UserSkill(**lang_obj))
+                programming_languages.append(UserSkill(**lang_obj))
             elif isinstance(lang, str):
                 # กรณีส่งมาเป็น string
-                programming_languages_with_proficiency.append(UserSkill(name=lang, proficiency=4))
+                programming_languages.append(UserSkill(name=lang, proficiency=4))
             else:
                 # กรณีอื่นๆ
                 logger.warning(f"พบรูปแบบภาษาโปรแกรมที่ไม่รองรับ: {lang}")
         
-        # แปลงเครื่องมือให้เป็นรูปแบบที่มี proficiency
-        tools_with_proficiency = []
+        # แปลงเครื่องมือให้เป็นรูปแบบที่ถูกต้อง
+        tools = []
         for tool in user_dict.get('tools', []):
             if isinstance(tool, dict):
                 # กรณีส่งมาเป็น object ที่มี name และ proficiency
                 tool_obj = {"name": tool.get("name", ""), "proficiency": tool.get("proficiency", 4)}
-                tools_with_proficiency.append(UserSkill(**tool_obj))
+                tools.append(UserSkill(**tool_obj))
             elif isinstance(tool, str):
                 # กรณีส่งมาเป็น string
-                tools_with_proficiency.append(UserSkill(name=tool, proficiency=4))
+                tools.append(UserSkill(name=tool, proficiency=4))
             else:
                 # กรณีอื่นๆ
                 logger.warning(f"พบรูปแบบเครื่องมือที่ไม่รองรับ: {tool}")
@@ -112,8 +114,8 @@ async def register_user(
             education_status=education_status,
             year=user_dict.get('year', 1),
             skills=skills,
-            programming_languages=user_dict.get('programming_languages', []),
-            tools=user_dict.get('tools', []),
+            programming_languages=programming_languages,
+            tools=tools,
             projects=projects,
             work_experiences=work_experiences
         )
@@ -138,11 +140,15 @@ async def register_user(
             # บันทึกข้อมูลผู้ใช้
             if not save_app_user(user):
                 raise HTTPException(status_code=500, detail="ไม่สามารถอัปเดตข้อมูลผู้ใช้ได้")
+            
+            logger.info(f"อัปเดตข้อมูลผู้ใช้ {user.name} เรียบร้อยแล้ว")
         else:
             # ถ้ายังไม่มีผู้ใช้ ให้สร้างใหม่
             user = create_app_user(user_create)
             if not user:
                 raise HTTPException(status_code=500, detail="ไม่สามารถสร้างผู้ใช้ได้")
+            
+            logger.info(f"สร้างผู้ใช้ใหม่ {user.name} เรียบร้อยแล้ว")
         
         # บันทึก resume ถ้ามี
         if resume:
@@ -154,6 +160,8 @@ async def register_user(
                 # อัปเดต resume_path ในข้อมูลผู้ใช้
                 user.resume_path = resume_path
                 save_app_user(user)
+                
+                logger.info("อัปเดต resume_path ในข้อมูลผู้ใช้เรียบร้อยแล้ว")
         
         return user
         

@@ -79,6 +79,9 @@ def save_app_user(user: User) -> bool:
         bool: สถานะความสำเร็จ
     """
     try:
+        # สร้างโฟลเดอร์ถ้ายังไม่มี
+        os.makedirs(os.path.dirname(USER_FILE), exist_ok=True)
+        
         # แปลงเป็น dict แล้วบันทึก
         user_dict = user.dict()
         with open(USER_FILE, 'w', encoding='utf-8') as f:
@@ -162,6 +165,7 @@ def create_app_user(user_data: UserCreate) -> Optional[User]:
         existing_user = get_app_user()
         if existing_user:
             # แทนที่จะสร้างใหม่ ให้อัปเดตผู้ใช้เดิม
+            logger.info(f"พบผู้ใช้เดิม {existing_user.name} จะทำการอัปเดตข้อมูล")
             existing_user.name = user_data.name
             existing_user.institution = user_data.institution
             existing_user.education_status = user_data.education_status
@@ -224,6 +228,9 @@ def save_app_resume(content, filename: str) -> Optional[str]:
         Optional[str]: พาธของไฟล์ Resume หรือ None ถ้าไม่สำเร็จ
     """
     try:
+        # สร้างโฟลเดอร์ถ้ายังไม่มี
+        os.makedirs(RESUME_DIR, exist_ok=True)
+        
         # สร้างชื่อไฟล์
         _, ext = os.path.splitext(filename)
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -299,6 +306,9 @@ def save_chat_history(chat_history: ChatHistory) -> bool:
         bool: สถานะความสำเร็จ
     """
     try:
+        # สร้างโฟลเดอร์ถ้ายังไม่มี
+        os.makedirs(CHATS_DIR, exist_ok=True)
+        
         # กำหนดชื่อไฟล์
         chat_file = os.path.join(CHATS_DIR, f"{chat_history.id}.json")
         

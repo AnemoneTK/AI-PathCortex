@@ -366,11 +366,10 @@ const removeTag = (type, tag) => {
         institution: userData.education.institution,
         education_status: userData.education.status,
         year: userData.education.year,
-        skills: userData.skills.map((skill) => 
-          typeof skill === 'object' 
-            ? skill.name 
-            : skill
-        ), 
+        skills: userData.skills.map((skill) => ({
+          name: typeof skill === 'object' ? skill.name : skill,
+          proficiency: typeof skill === 'object' ? skill.proficiency : 4,
+        })),
         programming_languages: userData.programmingLanguages.map((lang) => ({
           name: typeof lang === 'object' ? lang.name : lang,
           proficiency: typeof lang === 'object' ? lang.proficiency : 4,
