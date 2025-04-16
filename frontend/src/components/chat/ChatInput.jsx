@@ -6,9 +6,9 @@ import { motion } from "framer-motion"
 export default function ChatInput({ value, onChange, onSubmit, isLoading, darkMode = false }) {
   return (
     <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-t p-4 shadow-md`}>
-      <div className="max-w-3xl mx-auto">
+      <div className="mx-auto">
         <form onSubmit={onSubmit} className="relative">
-          <input
+          <textarea
             type="text"
             value={value}
             onChange={(e) => onChange(e.target.value)}

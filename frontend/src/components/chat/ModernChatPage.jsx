@@ -120,7 +120,7 @@ export default function ModernChatPage() {
   }
 
   return (
-    <div className={`h-screen w-full ${darkMode ? 'dark bg-gray-900' : 'bg-gradient-to-br from-blue-50 to-indigo-50'} transition-colors duration-200`}>
+    <div className={`h-screen w-full flex flex-row ${darkMode ? 'dark bg-gray-900' : 'bg-gradient-to-br from-blue-50 to-indigo-50'} transition-colors duration-200`}>
       {/* Sidebar */}
       <ChatSidebar 
         chatStyle={chatStyle}
@@ -135,7 +135,7 @@ export default function ModernChatPage() {
       />
 
       {/* Main Chat Area */}
-      <div className="flex-1 overflow-hidden flex flex-col h-full pt-16 md:pt-0 ml-0 md:ml-80 lg:ml-96">
+      <div className=" overflow-hidden flex flex-col h-full w-full pt-16 md:pt-0 ml-0 ">
         <ChatHeader 
           chatStyle={chatStyle} 
           toggleSidebar={toggleSidebar}

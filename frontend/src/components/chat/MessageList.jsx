@@ -6,8 +6,8 @@ import MessageBubble from "./MessageBubble"
 
 export default function MessageList({ messages, isLoading, messagesEndRef, darkMode = false }) {
   return (
-    <div className={`flex-1 overflow-y-auto ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-blue-50 to-indigo-50'} p-4`}>
-      <div className="max-w-3xl mx-auto">
+    <div className={`h-full w-full overflow-y-auto ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-blue-50 to-indigo-50'} p-4`}>
+      <div className=" mx-auto">
         <AnimatePresence initial={false}>
           {messages.map((message, index) => (
             <motion.div

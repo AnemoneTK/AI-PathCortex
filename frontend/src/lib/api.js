@@ -3,18 +3,21 @@ export async function checkUserStatus() {
     const response = await fetch(
       "http://0.0.0.0:8000/registration/user-status"
     );
+
     if (!response.ok) {
       throw new Error(`API responded with status: ${response.status}`);
     }
+
     const data = await response.json();
     return data.user_exists;
   } catch (error) {
     console.error("Error checking user status:", error);
-    return false; // หากมีข้อผิดพลาด สมมติว่าไม่มีผู้ใช้
+    // In case of network error or API failure, return false
+    return false;
   }
 }
 
-export async function sendChatMessage(message, personality = "formal") {
+export async function sendChatMessage(message, personality = "friendly") {
   try {
     const response = await fetch("http://0.0.0.0:8000/chat", {
       method: "POST",
