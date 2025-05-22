@@ -15,6 +15,8 @@ import {
 // Registration flow component
 const UserRegistration = () => {
   // Track current step in the registration flow
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE;
+
   const [currentStep, setCurrentStep] = useState(0);
 
   // State for user data
@@ -399,7 +401,7 @@ const removeTag = (type, tag) => {
       }
   
       // Send to backend API
-      const response = await fetch("http://0.0.0.0:8000/registration/", {
+      const response = await fetch(`${BASE_URL}/registration/`, {
         method: "POST",
         body: formData,
       });

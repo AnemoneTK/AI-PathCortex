@@ -8,7 +8,7 @@ export default function ChatInput({ value, onChange, onSubmit, isLoading, darkMo
     <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-t p-4 shadow-md`}>
       <div className="mx-auto">
         <form onSubmit={onSubmit} className="relative">
-          <textarea
+          <input
             type="text"
             value={value}
             onChange={(e) => onChange(e.target.value)}

@@ -1,8 +1,8 @@
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE;
+
 export async function checkUserStatus() {
   try {
-    const response = await fetch(
-      "http://0.0.0.0:8000/registration/user-status"
-    );
+    const response = await fetch(`${BASE_URL}/registration/user-status`);
 
     if (!response.ok) {
       throw new Error(`API responded with status: ${response.status}`);
@@ -19,7 +19,7 @@ export async function checkUserStatus() {
 
 export async function sendChatMessage(message, personality = "friendly") {
   try {
-    const response = await fetch("http://0.0.0.0:8000/chat", {
+    const response = await fetch(`${BASE_URL}/chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -44,9 +44,7 @@ export async function sendChatMessage(message, personality = "friendly") {
 // ฟังก์ชันดึงประวัติการแชท (ถ้าต้องการใช้ในอนาคต)
 export async function getChatHistory(limit = 10) {
   try {
-    const response = await fetch(
-      `http://0.0.0.0:8000/chat/history?limit=${limit}`
-    );
+    const response = await fetch(`${BASE_URL}/chat/history?limit=${limit}`);
 
     if (!response.ok) {
       throw new Error(`API responded with status: ${response.status}`);
@@ -62,7 +60,7 @@ export async function getChatHistory(limit = 10) {
 // ฟังก์ชันดึงข้อมูลผู้ใช้
 export async function getUserInfo() {
   try {
-    const response = await fetch("http://0.0.0.0:8000/registration/user-info");
+    const response = await fetch(`${BASE_URL}/registration/user-info`);
 
     if (!response.ok) {
       throw new Error(`API responded with status: ${response.status}`);

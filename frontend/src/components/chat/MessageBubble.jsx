@@ -1,10 +1,13 @@
 "use client"
 
 import { User, Bot } from "lucide-react"
-import React from "react"
+import React, { useEffect } from "react"
 
 export default function MessageBubble({ message, isLastMessage, darkMode = false }) {
   const isUser = message.role === "user"
+  useEffect(()=>{
+    console.log('message',message)
+  },[])
 
   // ฟังก์ชันสำหรับการแปลงข้อความให้มีการจัดรูปแบบที่ดีขึ้น
   const formatMessageContent = (content) => {
@@ -18,7 +21,7 @@ export default function MessageBubble({ message, isLastMessage, darkMode = false
     let inList = false;
     
     for (let i = 0; i < lines.length; i++) {
-      let line = lines[i];
+      let line = lines[i].replace(/\*\*/g, '');
       
       // จัดการกับหัวข้อใหญ่
       if (line.match(/^ตำแหน่ง|^ความรับผิดชอบ|^ทักษะ|^ช่วงเงินเดือน/i)) {
@@ -101,7 +104,7 @@ export default function MessageBubble({ message, isLastMessage, darkMode = false
                 {message.sources.map((source, idx) => (
                   <li key={idx} className="flex items-start gap-1">
                     <span className="font-medium">{source.title || (source.type === "job" ? "ข้อมูลงาน" : "คำแนะนำอาชีพ")}:</span> 
-                    <span className="truncate">{typeof source.content === 'string' ? source.content.substring(0, 60) + '...' : 'ไม่มีรายละเอียด'}</span>
+                    <span className="truncate">{ source.similarity_score}</span>
                   </li>
                 ))}
               </ul>

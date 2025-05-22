@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react'
 import { X, User } from 'lucide-react'
 
 export default function UserProfileModal({ isOpen, onClose }) {
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE;
+
   const [userData, setUserData] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -17,7 +19,7 @@ export default function UserProfileModal({ isOpen, onClose }) {
   const fetchUserData = async () => {
     try {
       setLoading(true)
-      const response = await fetch('http://0.0.0.0:8000/registration/user-info')
+      const response = await fetch(`${BASE_URL}/registration/user-info`)
       
       if (!response.ok) {
         throw new Error(`API responded with status: ${response.status}`)

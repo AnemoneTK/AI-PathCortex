@@ -9,11 +9,13 @@ import ChatHeader from "./ChatHeader"
 import UserInfoModal from "./UserInfoModal"
 
 export default function ModernChatPage() {
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE;
+
   // States
   const [messages, setMessages] = useState([
     { 
       role: "assistant", 
-      content: "สวัสดีค่ะ ฉันเป็น AI Buddy ที่จะช่วยให้คำแนะนำเกี่ยวกับอาชีพด้าน IT และคอมพิวเตอร์ คุณมีคำถามอะไรไหมคะ?" 
+      content: "สวัสดี ฉันเป็น AI Buddy ที่จะช่วยให้คำแนะนำเกี่ยวกับอาชีพด้าน IT และคอมพิวเตอร์ คุณมีคำถามอะไรไหม?" 
     }
   ])
   const [inputValue, setInputValue] = useState("")
@@ -29,7 +31,7 @@ export default function ModernChatPage() {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const response = await fetch('http://0.0.0.0:8000/registration/user-info');
+        const response = await fetch(`${BASE_URL}/registration/user-info`);
         if (response.ok) {
           const data = await response.json();
           setUserData(data);
@@ -75,7 +77,8 @@ export default function ModernChatPage() {
 
     try {
       // Call API with selected style
-      const response = await fetch("http://0.0.0.0:8000/chat", {
+      console.log('inputValue',inputValue)
+      const response = await fetch(`${BASE_URL}/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
