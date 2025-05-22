@@ -19,7 +19,7 @@ export async function checkUserStatus() {
 
 export async function sendChatMessage(message, personality = "friendly") {
   try {
-    const response = await fetch(`${BASE_URL}/chat`, {
+    const response = await fetch(`${BASE_URL}/chat/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
