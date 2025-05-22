@@ -61,12 +61,14 @@ export async function getChatHistory(limit = 10) {
 export async function getUserInfo() {
   try {
     const response = await fetch(`${BASE_URL}/registration/user-info`);
+    const text = await response.text();
 
+    console.log("🧪 Raw response from /user-info:", text);
     if (!response.ok) {
       throw new Error(`API responded with status: ${response.status}`);
     }
 
-    return await response.json();
+    return JSON.parse(text);
   } catch (error) {
     console.error("Error fetching user info:", error);
     return null;
