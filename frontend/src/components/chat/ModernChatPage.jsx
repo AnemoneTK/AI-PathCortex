@@ -32,7 +32,9 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_BASE;
     const fetchUserData = async () => {
       try {
         const response = await fetch(`${BASE_URL}/registration/user-info`);
-          console.log('user data',response)
+          const text = await response.text();
+console.log("📦 Raw response:", text);
+
 
         if (response.ok) {
           const data = await response.json();

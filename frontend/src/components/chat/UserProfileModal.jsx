@@ -20,7 +20,9 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_BASE;
     try {
       setLoading(true)
       const response = await fetch(`${BASE_URL}/registration/user-info`)
-          console.log('user data',response)
+          const text = await response.text();
+console.log("📦 Raw response:", text);
+
       
       if (!response.ok) {
         throw new Error(`API responded with status: ${response.status}`)
