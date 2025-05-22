@@ -78,7 +78,9 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_BASE;
     try {
       // Call API with selected style
       console.log('inputValue',inputValue)
-      const response = await fetch(`${BASE_URL}/chat`, {
+      console.log('BASE_URL',BASE_URL)
+
+      const response = await fetch(`${BASE_URL}/chat/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
