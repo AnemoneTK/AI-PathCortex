@@ -17,21 +17,19 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_BASE;
   }, [isOpen])
 
   const fetchUserData = async () => {
-  try {
-    const response = await fetch(`${BASE_URL}/registration/user-info`);
-    
-    const text = await response.text(); 
-    console.log("Raw response:", text);
-
-    if (!response.ok || text.startsWith("<!DOCTYPE html>")) {
-      throw new Error("ได้ HTML แทน JSON");
-    }
-
-    const data = JSON.parse(text); // แปลง text เป็น JSON ทีหลัง
-    setUserData(data);
-
-  } catch (error) {
-    console.error("Failed to fetch user info:", error);
+    try {
+      setLoading(true)
+      const response = await fetch(`${BASE_URL}/registration/user-info`)
+          console.log('user data',data)
+      
+      if (!response.ok) {
+        throw new Error(`API responded with status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      setUserData(data)
+    } catch (error) {
+      console.error('Error fetching user data:', error)
     } finally {
       setLoading(false)
     }
