@@ -32,10 +32,11 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_BASE;
     const fetchUserData = async () => {
       try {
         const response = await fetch(`${BASE_URL}/registration/user-info`);
+          console.log('user data',response)
+
         if (response.ok) {
           const data = await response.json();
           setUserData(data);
-          console.log('user data',data)
         }
       } catch (error) {
         console.error('Failed to fetch user info:', error);
