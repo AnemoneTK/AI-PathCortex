@@ -193,5 +193,5 @@ async def get_user_info():
     """
     user = get_app_user()
     if user:
-        return user
+        return user.dict()  
     return {"user_exists": False}
