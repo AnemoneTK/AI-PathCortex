@@ -1,15 +1,13 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Brain } from "lucide-react";
 import Link from "next/link";
-
 const Navbar = () => {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md shadow-sm">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <Brain className="h-8 w-8 text-theme-blue" />
-          <span className="text-xl font-bold text-theme-blue">AI Buddy</span>
+          <img src="/PCT_Logo.png" className="h-10 aspect-square"  alt="PCT_Logo" />
+          <span className="text-xl font-bold text-theme-blue">PathCorTax</span>
         </div>
         
         <nav className="hidden md:flex items-center space-x-8">

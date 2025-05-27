@@ -125,7 +125,7 @@ module.exports = {
         "pulse-slow": "pulse-slow 4s ease-in-out infinite",
       },
       fontFamily: {
-        sans: ["Inter", "sans-serif"],
+        prompt: ["var(--font-prompt)", "sans-serif"],
       },
       backgroundImage: {
         "blue-gradient": "linear-gradient(to right, #60A5FA, #1E40AF)",
@@ -134,5 +134,5 @@ module.exports = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require("@tailwindcss/typography"), require("tailwindcss-animate")],
 };

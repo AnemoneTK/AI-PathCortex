@@ -5,6 +5,7 @@
 
 @layer theme {
   :root {
+    font-family: var(--font-prompt), sans-serif;
     --background: 210 40% 98%;
     --foreground: 222.2 84% 4.9%;
 
@@ -316,7 +317,7 @@
 }
 
 body {
-  font-family: theme("fontFamily.sans");
+  font-family: var(--font-prompt), sans-serif;
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
 }
