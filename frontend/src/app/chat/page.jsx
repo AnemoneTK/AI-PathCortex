@@ -3,10 +3,12 @@
 import { useState, useEffect, useRef } from "react";
 import { Send, User2, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { useRouter } from "next/navigation";
+
 const MODES = [
-  { name: "ทางการ", key: "formal", avatar: "/avatars/formal.png" },
-  { name: "เพื่อน", key: "friendly", avatar: "/avatars/friend.png" },
-  { name: "สนุก", key: "fun", avatar: "/avatars/fun.png" },
+  { name: "ทางการ", key: "formal", avatar: "/F1.png" },
+  { name: "เพื่อน", key: "friendly", avatar: "/F2.png" },
+  { name: "สนุก", key: "fun", avatar: "/F3.png" },
 ];
 
 const SUGGESTIONS = [
@@ -16,8 +18,27 @@ const SUGGESTIONS = [
   "ทักษะที่จำเป็นสำหรับ UX/UI Designer",
 ];
 
+function renderStars(rating, max = 5) {
+  return (
+    <span>
+      {[...Array(max)].map((_, i) =>
+        i < rating ? (
+          <span key={i} className="text-yellow-500">
+            ★
+          </span>
+        ) : (
+          <span key={i} className="text-gray-400">
+            ★
+          </span>
+        )
+      )}
+    </span>
+  );
+}
+
 export default function ModernChatPage() {
   const BASE_URL = process.env.NEXT_PUBLIC_API_BASE;
+  const router = useRouter();
   const [mode, setMode] = useState(MODES[1]);
   const [inputValue, setInputValue] = useState("");
   const [aiResponse, setAiResponse] = useState("");
@@ -222,7 +243,8 @@ export default function ModernChatPage() {
         {/* User info modal */}
         {showUserInfo && userData && (
           <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
-            <div className="bg-white rounded-2xl shadow-2xl p-6 w-[90vw] max-w-md flex flex-col items-center relative animate-fade-in border border-blue-100">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 w-[90vw] max-w-md flex flex-col gap-2 items-center relative animate-fade-in border border-blue-100">
+              {/* ปุ่มปิด */}
               <button
                 className="absolute top-2 right-3 text-gray-400 hover:text-red-500 text-2xl"
                 onClick={() => setShowUserInfo(false)}
@@ -230,36 +252,111 @@ export default function ModernChatPage() {
               >
                 &times;
               </button>
+              {/* Icon */}
               <User2 size={40} className="text-blue-500 mb-2" />
               <div className="text-lg font-bold text-blue-700 mb-2">
                 ข้อมูลผู้ใช้
               </div>
-              <div className="text-blue-800 text-center space-y-1">
+
+              {/* ข้อมูลหลัก */}
+              <div className="text-blue-900 w-full text-sm space-y-1 mb-2">
                 <div>
-                  ชื่อ:{" "}
-                  <span className="font-medium text-black">
-                    {userData.name}
-                  </span>
+                  <span className="font-medium text-blue-700">ชื่อ:</span>{" "}
+                  <span className="text-black">{userData.name}</span>
                 </div>
                 <div>
-                  สถาบัน:{" "}
-                  <span className="font-medium text-black">
-                    {userData.institution}
-                  </span>
+                  <span className="font-medium text-blue-700">สถาบัน:</span>{" "}
+                  <span className="text-black">{userData.institution}</span>
                 </div>
                 <div>
-                  ปีการศึกษา:{" "}
-                  <span className="font-medium text-black">
-                    {userData.year}
-                  </span>
+                  <span className="font-medium text-blue-700">ปีการศึกษา:</span>{" "}
+                  <span className="text-black">{userData.year}</span>
                 </div>
                 <div>
-                  สถานะ:{" "}
-                  <span className="font-medium text-black">
+                  <span className="font-medium text-blue-700">สถานะ:</span>{" "}
+                  <span className="text-black">
                     {userData.education_status}
                   </span>
                 </div>
               </div>
+
+              {/* ทักษะ */}
+              {userData.skills && userData.skills.length > 0 && (
+                <div className="w-full mb-2">
+                  <div className="font-semibold text-blue-600 mb-1">
+                    ทักษะ (Skills):
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {userData.skills.map((skill, idx) => (
+                      <span
+                        key={idx}
+                        className="bg-blue-100 text-blue-800 px-3 py-1 rounded-lg text-xs flex items-center gap-1"
+                      >
+                        {skill.name}
+                        <span className="ml-1">
+                          {renderStars(skill.proficiency)}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* โครงการ */}
+              {userData.projects && userData.projects.length > 0 && (
+                <div className="w-full mb-2">
+                  <div className="font-semibold text-blue-600 mb-1">
+                    โครงการ (Projects):
+                  </div>
+                  <div className="space-y-2">
+                    {userData.projects.map((project, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-blue-50 rounded-lg px-3 py-2"
+                      >
+                        <div className="font-bold text-blue-700">
+                          {project.name}
+                        </div>
+                        <div className="text-xs text-blue-800">
+                          {project.description}
+                        </div>
+                        <div className="text-xs">
+                          <span className="font-medium text-blue-600">
+                            Tech:
+                          </span>{" "}
+                          {project.technologies.join(", ")}
+                        </div>
+                        <div className="text-xs">
+                          <span className="font-medium text-blue-600">
+                            บทบาท:
+                          </span>{" "}
+                          {project.role}
+                        </div>
+                        {project.url && (
+                          <a
+                            href={project.url}
+                            className="text-xs text-blue-500 underline"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Project Link
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      className="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 shadow transition"
+                      onClick={() => router.push("/registration")}
+                      type="button"
+                    >
+                      + สร้างผู้ใช้ใหม่
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* อื่น ๆ (ถ้ามี) */}
+              {/* เพิ่ม work_experiences, programming_languages, tools ได้ตามต้องการ */}
             </div>
           </div>
         )}
