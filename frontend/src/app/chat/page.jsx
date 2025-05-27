@@ -161,11 +161,14 @@ export default function ModernChatPage() {
           {(aiResponse || isLoading) && (
             <div className="flex justify-start">
               <div
-                className="max-w-[90%] md:max-w-[80%] px-4 py-2 rounded-2xl shadow
-        bg-gradient-to-br from-blue-50 via-white to-blue-100
-        border border-blue-200
-        animate-fade-in break-words whitespace-pre-wrap
-        prose prose-blue max-w-full text-base"
+                className="
+  prose prose-blue max-w-full text-base
+  prose-p:my-1 prose-p:leading-snug
+  prose-li:my-0 prose-li:leading-tight
+  px-4 py-2 rounded-2xl shadow
+  bg-gradient-to-br from-blue-50 via-white to-blue-100
+  border border-blue-200
+"
               >
                 {isLoading ? (
                   "กำลังพิมพ์..."
@@ -201,9 +204,16 @@ export default function ModernChatPage() {
 
         {/* Overlay loading - กันคลิกทุกจุด */}
         {isLoading && (
-          <div className="absolute inset-0 bg-white/70 flex flex-col items-center justify-center z-50">
-            <Loader2 size={48} className="animate-spin text-blue-400 mb-4" />
-            <div className="text-blue-700 text-lg font-bold animate-pulse">
+          <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center z-50">
+            <video
+              src="/Loading.webm"
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-40 aspect-square object-contain"
+            />
+            <div className="text-blue-700 text-lg font-bold mt-3">
               Loading...
             </div>
           </div>
