@@ -50,24 +50,28 @@ export default function ModernChatPage() {
 
   // โหลด user info
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const response = await fetch(`${BASE_URL}/registration/user-info`);
-        console.log("fetchUserData_response", response);
-        const text = await response.text();
-        if (!response.ok || text.startsWith("<!DOCTYPE html>"))
-          throw new Error();
-        const data = JSON.parse(text);
-        setUserData(data);
-      } catch (error) {
-        setUserData(null);
-        console.log("fetchUserData", error);
-      }
-    };
     fetchUserData();
   }, [BASE_URL]);
+
+  const fetchUserData = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/registration/user-info`);
+      const text = await response.text();
+      if (!response.ok || text.startsWith("<!DOCTYPE html>")) throw new Error();
+      const data = JSON.parse(text);
+      console.log("fetchUserData_response", response);
+      console.log("fetchUserData_data", data);
+      setUserData(data);
+    } catch (error) {
+      setUserData(null);
+      console.log("fetchUserData", error);
+    }
+  };
   useEffect(() => {
     console.log("showUserInfo", showUserInfo);
+    if (showUserInfo) {
+      fetchUserData();
+    }
   }, [showUserInfo]);
 
   // Auto scroll chat body
