@@ -310,6 +310,49 @@ export default function ModernChatPage() {
                   </div>
                 </div>
               )}
+              {userData.programming_languages &&
+                userData.programming_languages.length > 0 && (
+                  <div className="w-full mb-2">
+                    <div className="font-semibold text-blue-600 mb-1">
+                      ภาษาที่เขียนได้ (Programming Languages):
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {userData.programming_languages.map(
+                        (programming_languages, idx) => (
+                          <span
+                            key={idx}
+                            className="bg-blue-100 text-blue-800 px-3 py-1 rounded-lg text-xs flex items-center gap-1"
+                          >
+                            {programming_languages.name}
+                            <span className="ml-1">
+                              {renderStars(programming_languages.proficiency)}
+                            </span>
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
+              {userData.tools && userData.tools.length > 0 && (
+                <div className="w-full mb-2">
+                  <div className="font-semibold text-blue-600 mb-1">
+                    เครื่องมือที่ใช้ (Tools):
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {userData.tools.map((tools, idx) => (
+                      <span
+                        key={idx}
+                        className="bg-blue-100 text-blue-800 px-3 py-1 rounded-lg text-xs flex items-center gap-1"
+                      >
+                        {tools.name}
+                        <span className="ml-1">
+                          {renderStars(tools.proficiency)}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* โครงการ */}
               {userData.projects && userData.projects.length > 0 && (
@@ -353,19 +396,16 @@ export default function ModernChatPage() {
                         )}
                       </div>
                     ))}
-                    <button
-                      className="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 shadow transition"
-                      onClick={() => router.push("/registration")}
-                      type="button"
-                    >
-                      + สร้างผู้ใช้ใหม่
-                    </button>
                   </div>
                 </div>
               )}
-
-              {/* อื่น ๆ (ถ้ามี) */}
-              {/* เพิ่ม work_experiences, programming_languages, tools ได้ตามต้องการ */}
+              <button
+                className="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 shadow transition"
+                onClick={() => router.push("/registration")}
+                type="button"
+              >
+                + สร้างผู้ใช้ใหม่
+              </button>
             </div>
           </div>
         )}
