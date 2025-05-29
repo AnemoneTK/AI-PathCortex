@@ -53,17 +53,22 @@ export default function ModernChatPage() {
     const fetchUserData = async () => {
       try {
         const response = await fetch(`${BASE_URL}/registration/user-info`);
+        console.log("fetchUserData_response", response);
         const text = await response.text();
         if (!response.ok || text.startsWith("<!DOCTYPE html>"))
           throw new Error();
         const data = JSON.parse(text);
         setUserData(data);
-      } catch {
+      } catch (error) {
         setUserData(null);
+        console.log("fetchUserData", error);
       }
     };
     fetchUserData();
   }, [BASE_URL]);
+  useEffect(() => {
+    console.log("showUserInfo", showUserInfo);
+  }, [showUserInfo]);
 
   // Auto scroll chat body
   useEffect(() => {
